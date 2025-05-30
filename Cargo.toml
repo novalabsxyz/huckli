@@ -5,7 +5,7 @@ edition = "2024"
 [workspace]
 members = [
     "import-derive",
-    "import","s3",
+    "import","s3", "db",
 ]
 resolver = "3"
 

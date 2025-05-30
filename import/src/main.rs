@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
+use futures::{Stream, StreamExt, TryStreamExt};
 
 mod mobile_rewards;
 mod subscribers;
@@ -36,6 +37,35 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+pub async fn stream_and_decode<F, T>(
+    s3: &s3::S3,
+    bucket: &str,
+    prefix: &str,
+    time: &TimeArgs,
+) -> anyhow::Result<impl Stream<Item = T>>
+where
+    F: prost::Message + Default,
+    T: From<F>,
+{
+    let files = s3
+        .list_all(bucket, prefix, time.after_utc(), time.before_utc())
+        .await?;
+
+    Ok(s3
+        .stream_files(bucket, files)
+        .then(|b| async move { F::decode(b) })
+        .and_then(|f| async move { Ok(T::from(f)) })
+        .filter_map(|result| async move {
+            match result {
+                Ok(t) => Some(t),
+                Err(e) => {
+                    eprintln!("error is decoding record: {}", e);
+                    None
+                }
+            }
+        }))
 }
 
 #[derive(Debug, clap::Args)]

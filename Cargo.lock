@@ -1311,6 +1311,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "duckdb",
+ "futures",
+]
+
+[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2126,6 +2135,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "db",
  "duckdb",
  "futures",
  "helium-proto",

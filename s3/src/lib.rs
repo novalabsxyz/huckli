@@ -137,7 +137,7 @@ impl S3 {
         Ok(objects)
     }
 
-    pub fn stream_bytes(
+    pub fn stream_files(
         &self,
         bucket: &str,
         files: Vec<FileInfo>,

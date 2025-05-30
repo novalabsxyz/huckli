@@ -1,7 +1,7 @@
 use case::CaseExt;
 use darling::FromDeriveInput;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 
 #[derive(Debug, darling::FromField, Clone)]
@@ -10,6 +10,24 @@ struct Field {
     ident: Option<syn::Ident>,
     sql: Option<String>,
     nullable: Option<bool>,
+}
+
+impl ToTokens for Field {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let name = self.ident.as_ref().unwrap().to_string();
+        let sql = if let Some(t) = self.sql.as_ref() {
+            quote! { Some(#t.to_string()) }
+        } else {
+            quote! { None }
+        };
+        let nullable = if let Some(n) = self.nullable {
+            quote! { Some(#n) }
+        } else {
+            quote! { None }
+        };
+
+        tokens.extend(quote! { db::TableField::new(#name.to_string(), #sql, #nullable) });
+    }
 }
 
 #[derive(Debug, darling::FromDeriveInput)]
@@ -42,64 +60,38 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let bucket = opts.bucket;
     let prefix = opts.prefix;
 
-    let create_table_sql = create_table_sql(&table_name, fields);
-
     let out = quote! {
 
         impl #name {
             pub async fn get_and_persist(
                 args: &crate::Args,
             ) -> anyhow::Result<()> {
-                use futures::{ StreamExt, TryStreamExt };
-                use prost::Message;
-
-                let connection = duckdb::Connection::open(&args.db)?;
+                let db = db::Db::connect(&args.db)?;
                 let s3 = args.s3.connect().await;
 
-                connection.execute(#create_table_sql, [])?;
+                db.create_table(#table_name, vec![#(#fields),*])?;
 
-                let files = s3.list_all(#bucket, #prefix, args.time.after_utc(), args.time.before_utc()).await?;
+                let stream = crate::stream_and_decode::<#proto, #name>(
+                    &s3,
+                    #bucket,
+                    #prefix,
+                    &args.time
+                ).await?;
 
-                let mut stream = s3
-                    .stream_bytes(#bucket, files)
-                    .then(|b| async move { #proto::decode(b) })
-                    .and_then(|i| async move { Ok(#name::from(i)) })
-                    .filter_map(|o| async move { o.ok() })
-                    .boxed();
-
-                let mut appender = connection.appender(#table_name)?;
-                while let Some(d) = stream.next().await {
-                    appender.append_row(duckdb::params![#(d.#field_names),*])?;
-                }
+                db.append_to_table(#table_name, stream).await?;
 
                 Ok(())
+            }
+        }
+
+        impl db::Appendable for #name {
+            fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()> {
+                appender.append_row(duckdb::params![#(self.#field_names),*])
+                    .map_err(anyhow::Error::from)
             }
         }
 
     };
 
     out.into()
-}
-
-fn create_table_sql(table_name: &str, fields: Vec<Field>) -> String {
-    let fields_sql = fields
-        .iter()
-        .map(|f| {
-            let nullable = if f.nullable.unwrap_or(false) {
-                "NULL"
-            } else {
-                "NOT NULL"
-            };
-
-            format!(
-                "{} {} {}",
-                f.ident.as_ref().unwrap().to_string(),
-                f.sql.as_deref().unwrap_or("TEXT"),
-                nullable
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-
-    format!("CREATE TABLE IF NOT EXISTS {} ({})", table_name, fields_sql)
 }
