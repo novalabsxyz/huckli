@@ -1,0 +1,17 @@
+[package]
+name = "import"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+duckdb.workspace = true
+futures.workspace = true
+helium-proto.workspace = true
+import-derive = { path = "../import-derive" }
+prost.workspace = true
+s3 = { path = "../s3" }
+tokio.workspace = true
+uuid.workspace = true
