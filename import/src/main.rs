@@ -9,10 +9,12 @@ mod data_transfer;
 mod heartbeats;
 mod mobile_rewards;
 mod subscribers;
+mod usage;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum SupportedFileTypes {
     MobileRewards,
+    RadioUsageStats,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
     VerifiedDataTransfer,
@@ -41,6 +43,9 @@ async fn main() -> anyhow::Result<()> {
     match args.file_type {
         SupportedFileTypes::MobileRewards => {
             mobile_rewards::MobileReward::get_and_persist(&db, &s3, &args.time).await?;
+        }
+        SupportedFileTypes::RadioUsageStats => {
+            usage::RadioUsageStats::get_and_persist(&db, &s3, &args.time).await?;
         }
         SupportedFileTypes::SubscriberMappingActivityIngest => {
             subscribers::SubscriberMappingActivityIngest::get_and_persist(&db, &s3, &args.time)
