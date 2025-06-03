@@ -25,8 +25,8 @@ pub struct VerifiedDataTransferIngestReport {
     timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
     received_timestamp: DateTime<Utc>,
-    verified_timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
+    verified_timestamp: DateTime<Utc>,
     status: String,
 }
 
