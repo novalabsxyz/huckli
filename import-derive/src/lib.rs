@@ -1,5 +1,5 @@
 use case::CaseExt;
-use darling::FromDeriveInput;
+use darling::{FromDeriveInput, FromMeta};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
@@ -10,6 +10,8 @@ struct Field {
     ident: Option<syn::Ident>,
     sql: Option<String>,
     nullable: Option<bool>,
+    #[darling(default)]
+    skip: bool,
 }
 
 impl ToTokens for Field {
@@ -30,14 +32,20 @@ impl ToTokens for Field {
     }
 }
 
+#[derive(Debug, FromMeta)]
+struct S3Decode {
+    proto: syn::Ident,
+    bucket: String,
+    prefix: String,
+}
+
 #[derive(Debug, darling::FromDeriveInput)]
 #[darling(attributes(import), supports(struct_any))]
 struct PersistDeriveOpts {
     ident: syn::Ident,
     data: darling::ast::Data<(), Field>,
-    proto: syn::Ident,
-    bucket: String,
-    prefix: String,
+    s3decode: Option<S3Decode>,
+    table_name: Option<String>,
 }
 
 #[proc_macro_derive(Import, attributes(import))]
@@ -51,37 +59,34 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     let name = opts.ident.clone();
 
-    let table_name = opts.ident.to_string().to_snake();
-    let fields = opts.data.take_struct().unwrap().fields;
+    let table_name = opts
+        .table_name
+        .unwrap_or_else(|| opts.ident.to_string().to_snake());
+
+    let fields = opts
+        .data
+        .clone()
+        .take_struct()
+        .unwrap()
+        .fields
+        .into_iter()
+        .filter(|f| !f.skip)
+        .collect::<Vec<_>>();
 
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
-    let proto = opts.proto;
-    let bucket = opts.bucket;
-    let prefix = opts.prefix;
-
-    let out = quote! {
-
+    let persist = quote! {
         impl #name {
-            pub async fn get_and_persist(
-                args: &crate::Args,
-            ) -> anyhow::Result<()> {
-                let db = db::Db::connect(&args.db)?;
-                let s3 = args.s3.connect().await;
 
+            pub async fn persist(
+                db: &db::Db,
+                stream: impl futures::Stream<Item = #name>,
+            ) -> anyhow::Result<()> {
                 db.create_table(#table_name, vec![#(#fields),*])?;
 
-                let stream = crate::stream_and_decode::<#proto, #name>(
-                    &s3,
-                    #bucket,
-                    #prefix,
-                    &args.time
-                ).await?;
-
-                db.append_to_table(#table_name, stream).await?;
-
-                Ok(())
+                db.append_to_table(#table_name, stream).await
             }
+
         }
 
         impl db::Appendable for #name {
@@ -93,5 +98,36 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     };
 
-    out.into()
+    let decode = if let Some(s3decode) = opts.s3decode {
+        let proto = s3decode.proto;
+        let bucket = s3decode.bucket;
+        let prefix = s3decode.prefix;
+        quote! {
+            impl #name {
+                pub async fn get_and_persist(
+                    db: &db::Db,
+                    s3: &s3::S3,
+                    time: &crate::TimeArgs,
+                ) -> anyhow::Result<()> {
+
+                    let stream = crate::stream_and_decode::<#proto, #name>(
+                        s3,
+                        #bucket,
+                        #prefix,
+                        time
+                    ).await?;
+
+                    Self::persist(db, stream).await
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        #persist
+        #decode
+    }
+    .into()
 }

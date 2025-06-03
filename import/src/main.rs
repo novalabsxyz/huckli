@@ -1,13 +1,19 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
 use futures::{Stream, StreamExt, TryStreamExt};
+use rust_decimal::Decimal;
 
+mod heartbeats;
 mod mobile_rewards;
 mod subscribers;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum SupportedFileTypes {
+    MobileRewards,
     SubscriberMappingActivityIngest,
+    ValidatedHeartbeat,
     VerifiedSubscriberMappingActivity,
 }
 
@@ -27,12 +33,23 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
+    let db = db::Db::connect(&args.db)?;
+    let s3 = args.s3.connect().await;
+
     match args.file_type {
+        SupportedFileTypes::MobileRewards => {
+            mobile_rewards::MobileReward::get_and_persist(&db, &s3, &args.time).await?;
+        }
         SupportedFileTypes::SubscriberMappingActivityIngest => {
-            subscribers::SubscriberMappingActivityIngest::get_and_persist(&args).await?;
+            subscribers::SubscriberMappingActivityIngest::get_and_persist(&db, &s3, &args.time)
+                .await?;
+        }
+        SupportedFileTypes::ValidatedHeartbeat => {
+            heartbeats::VerifiedWifiHeartbeat::get_and_persist(&db, &s3, &args.time).await?;
         }
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
-            subscribers::VerifiedSubscriberMappingActivity::get_and_persist(&args).await?;
+            subscribers::VerifiedSubscriberMappingActivity::get_and_persist(&db, &s3, &args.time)
+                .await?;
         }
     }
 
@@ -61,7 +78,7 @@ where
             match result {
                 Ok(t) => Some(t),
                 Err(e) => {
-                    eprintln!("error is decoding record: {}", e);
+                    eprintln!("error in decoding record: {}", e);
                     None
                 }
             }
@@ -103,5 +120,32 @@ pub fn determine_timestamp(timestamp: u64) -> DateTime<Utc> {
     } else {
         // Assume seconds format
         to_datetime(timestamp)
+    }
+}
+
+fn from_proto_decimal(opt: Option<&helium_proto::Decimal>) -> f64 {
+    opt.ok_or_else(|| anyhow::anyhow!("decimal not present"))
+        .and_then(|d| Decimal::from_str(&d.value).map_err(anyhow::Error::from))
+        .unwrap_or_default()
+        .try_into()
+        .unwrap()
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PublicKeyBinary(Vec<u8>);
+
+impl From<Vec<u8>> for PublicKeyBinary {
+    fn from(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+}
+
+impl std::fmt::Display for PublicKeyBinary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        // allocate one extra byte for the base58 version
+        let mut data = vec![0u8; self.0.len() + 1];
+        data[1..].copy_from_slice(&self.0);
+        let encoded = bs58::encode(&data).with_check().into_string();
+        f.write_str(&encoded)
     }
 }

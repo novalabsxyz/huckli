@@ -8,11 +8,11 @@ use uuid::Uuid;
 use crate::determine_timestamp;
 
 #[derive(Debug, Import)]
-#[import(
+#[import(s3decode(
     proto = SubscriberMappingActivityIngestReportV1,
     bucket = "helium-mainnet-mobile-ingest",
     prefix = "subscriber_mapping_activity_ingest_report",
-)]
+))]
 pub struct SubscriberMappingActivityIngest {
     subscriber_id: String,
     #[import(sql = "bigint")]
@@ -27,7 +27,7 @@ pub struct SubscriberMappingActivityIngest {
 
 impl From<SubscriberMappingActivityIngestReportV1> for SubscriberMappingActivityIngest {
     fn from(value: SubscriberMappingActivityIngestReportV1) -> Self {
-        let report = value.report.unwrap().clone();
+        let report = value.report.unwrap();
         Self {
             subscriber_id: Uuid::from_slice(&report.subscriber_id).unwrap().to_string(),
             discovery_reward_shares: report.discovery_reward_shares,
@@ -39,11 +39,11 @@ impl From<SubscriberMappingActivityIngestReportV1> for SubscriberMappingActivity
 }
 
 #[derive(Debug, Import)]
-#[import(
+#[import(s3decode(
     proto = VerifiedSubscriberMappingActivityReportV1,
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_subscriber_mapping_activity_report",
-)]
+))]
 pub struct VerifiedSubscriberMappingActivity {
     subscriber_id: String,
     #[import(sql = "bigint")]
@@ -60,16 +60,8 @@ pub struct VerifiedSubscriberMappingActivity {
 
 impl From<VerifiedSubscriberMappingActivityReportV1> for VerifiedSubscriberMappingActivity {
     fn from(value: VerifiedSubscriberMappingActivityReportV1) -> Self {
-        let report = value
-            .report
-            .as_ref()
-            .unwrap()
-            .report
-            .as_ref()
-            .unwrap()
-            .clone();
-
-        let ingest = value.report.as_ref().unwrap().clone();
+        let report = value.report.as_ref().unwrap().report.as_ref().unwrap();
+        let ingest = value.report.as_ref().unwrap();
 
         Self {
             subscriber_id: Uuid::from_slice(&report.subscriber_id).unwrap().to_string(),

@@ -961,6 +961,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bs58"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
+dependencies = [
+ "sha2",
+ "tinyvec",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2133,6 +2143,7 @@ name = "import"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bs58",
  "chrono",
  "clap",
  "db",
@@ -2141,6 +2152,7 @@ dependencies = [
  "helium-proto",
  "import-derive",
  "prost",
+ "rust_decimal",
  "s3",
  "tokio",
  "uuid",
@@ -3814,6 +3826,7 @@ version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
 dependencies = [
+ "getrandom 0.3.3",
  "js-sys",
  "wasm-bindgen",
 ]
