@@ -5,6 +5,7 @@ use clap::Parser;
 use futures::{Stream, StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
 
+mod data_transfer;
 mod heartbeats;
 mod mobile_rewards;
 mod subscribers;
@@ -14,6 +15,7 @@ enum SupportedFileTypes {
     MobileRewards,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
+    VerifiedDataTransfer,
     VerifiedSubscriberMappingActivity,
 }
 
@@ -46,6 +48,10 @@ async fn main() -> anyhow::Result<()> {
         }
         SupportedFileTypes::ValidatedHeartbeat => {
             heartbeats::VerifiedWifiHeartbeat::get_and_persist(&db, &s3, &args.time).await?;
+        }
+        SupportedFileTypes::VerifiedDataTransfer => {
+            data_transfer::VerifiedDataTransferIngestReport::get_and_persist(&db, &s3, &args.time)
+                .await?;
         }
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
             subscribers::VerifiedSubscriberMappingActivity::get_and_persist(&db, &s3, &args.time)
