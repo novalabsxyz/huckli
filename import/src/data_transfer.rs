@@ -7,7 +7,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 #[derive(Debug, Import)]
 #[import(s3decode(
     proto = VerifiedDataTransferIngestReportV1,
-    bucket = "helium-mainnet-mobile-verified",
+    bucket = "helium-mainnet-mobile-packet-verifier",
     prefix = "verified_data_transfer_session",
 ))]
 pub struct VerifiedDataTransferIngestReport {
