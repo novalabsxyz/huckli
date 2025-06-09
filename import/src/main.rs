@@ -13,6 +13,7 @@ mod usage;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum SupportedFileTypes {
+    DataTransferIngest,
     MobileRewards,
     RadioUsageStats,
     SubscriberMappingActivityIngest,
@@ -41,6 +42,9 @@ async fn main() -> anyhow::Result<()> {
     let s3 = args.s3.connect().await;
 
     match args.file_type {
+        SupportedFileTypes::DataTransferIngest => {
+            data_transfer::DataTransferIngestReport::get_and_persist(&db, &s3, &args.time).await?;
+        }
         SupportedFileTypes::MobileRewards => {
             mobile_rewards::MobileReward::get_and_persist(&db, &s3, &args.time).await?;
         }
