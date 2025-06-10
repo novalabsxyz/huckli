@@ -48,14 +48,6 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
 }
 
 impl crate::DbTable for MobileReward {
-    fn name() -> &'static str {
-        ""
-    }
-
-    fn fields() -> Vec<db::TableField> {
-        vec![]
-    }
-
     fn create_table(db: &db::Db) -> anyhow::Result<()> {
         GatewayReward::create_table(db)?;
         SubscriberReward::create_table(db)?;

@@ -72,12 +72,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 pub trait DbTable {
-    fn name() -> &'static str;
-    fn fields() -> Vec<db::TableField>;
-
-    fn create_table(db: &db::Db) -> anyhow::Result<()> {
-        db.create_table(Self::name(), Self::fields())
-    }
+    fn create_table(db: &db::Db) -> anyhow::Result<()>;
 
     fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
     where
