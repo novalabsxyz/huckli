@@ -60,18 +60,15 @@ impl crate::DbTable for MobileReward {
         Ok(())
     }
 
-    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
-    where
-        Self: Sized,
-    {
-        for mobile_reward in data {
-            let mut gateway_rewards = Vec::new();
-            let mut subscriber_rewards = Vec::new();
-            let mut provider_rewards = Vec::new();
-            let mut unallocated_rewards = Vec::new();
-            let mut promotions = Vec::new();
-            let mut radios = Vec::new();
+    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+        let mut gateway_rewards = Vec::new();
+        let mut subscriber_rewards = Vec::new();
+        let mut provider_rewards = Vec::new();
+        let mut unallocated_rewards = Vec::new();
+        let mut promotions = Vec::new();
+        let mut radios = Vec::new();
 
+        for mobile_reward in data {
             match mobile_reward {
                 MobileReward::Gateway(gateway) => {
                     gateway_rewards.push(gateway);
@@ -93,15 +90,15 @@ impl crate::DbTable for MobileReward {
                 }
                 _ => (),
             }
-
-            GatewayReward::save(db, gateway_rewards)?;
-            SubscriberReward::save(db, subscriber_rewards)?;
-            ServiceProviderReward::save(db, provider_rewards)?;
-            UnallocatedReward::save(db, unallocated_rewards)?;
-            PromotionReward::save(db, promotions)?;
-
-            radio_reward::Rewards::save(db, radios)?;
         }
+
+        GatewayReward::save(db, gateway_rewards)?;
+        SubscriberReward::save(db, subscriber_rewards)?;
+        ServiceProviderReward::save(db, provider_rewards)?;
+        UnallocatedReward::save(db, unallocated_rewards)?;
+        PromotionReward::save(db, promotions)?;
+
+        radio_reward::Rewards::save(db, radios)?;
 
         Ok(())
     }

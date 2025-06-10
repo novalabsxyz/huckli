@@ -72,12 +72,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub trait DbTable {
+pub trait DbTable: Sized {
     fn create_table(db: &db::Db) -> anyhow::Result<()>;
 
-    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
-    where
-        Self: Sized;
+    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>;
 }
 
 pub async fn get_and_persist<F, T>(
