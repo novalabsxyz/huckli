@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use futures::{StreamExt, stream::iter};
 use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
@@ -73,15 +72,14 @@ impl MobileReward {
         for file in files {
             println!("processing file {} - {}", file.key, file.timestamp);
 
-            let mut stream =
-                crate::stream_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
-                    s3,
-                    "helium-mainnet-mobile-verified",
-                    file,
-                )
-                .boxed();
+            let records = crate::get_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
+                s3,
+                "helium-mainnet-mobile-verified",
+                file,
+            )
+            .await;
 
-            while let Some(mobile_reward) = stream.next().await {
+            for mobile_reward in records {
                 let mut gateway_rewards = Vec::new();
                 let mut subscriber_rewards = Vec::new();
                 let mut provider_rewards = Vec::new();
@@ -111,16 +109,11 @@ impl MobileReward {
                     _ => (),
                 }
 
-                db.append_to_table(GatewayReward::name(), iter(gateway_rewards))
-                    .await?;
-                db.append_to_table(SubscriberReward::name(), iter(subscriber_rewards))
-                    .await?;
-                db.append_to_table(ServiceProviderReward::name(), iter(provider_rewards))
-                    .await?;
-                db.append_to_table(UnallocatedReward::name(), iter(unallocated_rewards))
-                    .await?;
-                db.append_to_table(PromotionReward::name(), iter(promotions))
-                    .await?;
+                GatewayReward::save(db, gateway_rewards)?;
+                SubscriberReward::save(db, subscriber_rewards)?;
+                ServiceProviderReward::save(db, provider_rewards)?;
+                UnallocatedReward::save(db, unallocated_rewards)?;
+                PromotionReward::save(db, promotions)?;
 
                 radio_reward::Rewards::persist(db, radios).await?;
             }

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
 
 mod data_transfer;
@@ -71,12 +71,19 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub trait DbTable {
+pub trait DbTable: db::Appendable {
     fn name() -> &'static str;
     fn fields() -> Vec<db::TableField>;
 
     fn create_table(db: &db::Db) -> anyhow::Result<()> {
         db.create_table(Self::name(), Self::fields())
+    }
+
+    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
+    where
+        Self: Sized,
+    {
+        db.append_to_table(Self::name(), data)
     }
 }
 
@@ -100,18 +107,14 @@ where
     for file in files {
         println!("processing file {} - {}", file.key, file.timestamp);
 
-        let stream = stream_and_decode::<F, T>(s3, bucket, file);
-        db.append_to_table(T::name(), stream).await?;
+        let data = get_and_decode::<F, T>(s3, bucket, file).await;
+        T::save(db, data)?;
     }
 
     Ok(())
 }
 
-pub fn stream_and_decode<F, T>(
-    s3: &s3::S3,
-    bucket: &str,
-    file: s3::FileInfo,
-) -> impl Stream<Item = T>
+pub async fn get_and_decode<F, T>(s3: &s3::S3, bucket: &str, file: s3::FileInfo) -> Vec<T>
 where
     F: prost::Message + Default,
     T: From<F>,
@@ -128,6 +131,8 @@ where
                 }
             }
         })
+        .collect()
+        .await
 }
 
 #[derive(Debug, clap::Args)]

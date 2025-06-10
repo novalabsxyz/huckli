@@ -1,5 +1,3 @@
-use futures::{Stream, StreamExt};
-
 pub struct Db {
     connection: duckdb::Connection,
 }
@@ -27,16 +25,13 @@ impl Db {
         Ok(())
     }
 
-    pub async fn append_to_table<S, A>(&self, table: &str, stream: S) -> anyhow::Result<()>
+    pub fn append_to_table<A>(&self, table: &str, data: Vec<A>) -> anyhow::Result<()>
     where
-        S: Stream<Item = A>,
         A: Appendable,
     {
-        let mut stream = std::pin::pin!(stream);
-
         let mut appender = self.connection.appender(table)?;
-        while let Some(a) = stream.next().await {
-            a.append(&mut appender)?;
+        for entry in data {
+            entry.append(&mut appender)?;
         }
 
         Ok(())

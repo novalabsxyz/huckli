@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use futures::stream::iter;
 use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
@@ -63,13 +62,10 @@ impl Rewards {
             hexes.append(&mut r.covered_hexes);
         }
 
-        db.append_to_table(RadioReward::name(), iter(radios))
-            .await?;
-        db.append_to_table(LocationTrustScore::name(), iter(trust_scores))
-            .await?;
-        db.append_to_table(Speedtest::name(), iter(speedtests))
-            .await?;
-        db.append_to_table(CoveredHex::name(), iter(hexes)).await?;
+        RadioReward::save(db, radios)?;
+        LocationTrustScore::save(db, trust_scores)?;
+        Speedtest::save(db, speedtests)?;
+        CoveredHex::save(db, hexes)?;
 
         Ok(())
     }

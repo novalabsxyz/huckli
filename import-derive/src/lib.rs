@@ -76,6 +76,7 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
     let persist = quote! {
+        #[async_trait::async_trait]
         impl crate::DbTable for #name {
             fn name() -> &'static str {
                 #table_name
