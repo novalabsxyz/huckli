@@ -41,6 +41,18 @@ impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)> for Rewards
 }
 
 impl Rewards {
+    pub fn create_tables(db: &db::Db) -> anyhow::Result<()> {
+        db.create_table(RadioReward::table_name(), RadioReward::db_fields())?;
+        db.create_table(
+            LocationTrustScore::table_name(),
+            LocationTrustScore::db_fields(),
+        )?;
+        db.create_table(Speedtest::table_name(), Speedtest::db_fields())?;
+        db.create_table(CoveredHex::table_name(), CoveredHex::db_fields())?;
+
+        Ok(())
+    }
+
     pub async fn persist(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
@@ -54,10 +66,14 @@ impl Rewards {
             hexes.append(&mut r.covered_hexes);
         }
 
-        RadioReward::persist(db, iter(radios)).await?;
-        LocationTrustScore::persist(db, iter(trust_scores)).await?;
-        Speedtest::persist(db, iter(speedtests)).await?;
-        CoveredHex::persist(db, iter(hexes)).await?;
+        db.append_to_table(RadioReward::table_name(), iter(radios))
+            .await?;
+        db.append_to_table(LocationTrustScore::table_name(), iter(trust_scores))
+            .await?;
+        db.append_to_table(Speedtest::table_name(), iter(speedtests))
+            .await?;
+        db.append_to_table(CoveredHex::table_name(), iter(hexes))
+            .await?;
 
         Ok(())
     }

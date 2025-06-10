@@ -53,52 +53,87 @@ impl MobileReward {
         s3: &s3::S3,
         time: &crate::TimeArgs,
     ) -> anyhow::Result<()> {
-        let mut stream = crate::stream_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
-            s3,
-            "helium-mainnet-mobile-verified",
-            "mobile_network_reward_shares_v1",
-            time,
-        )
-        .await?
-        .boxed();
+        db.create_table(GatewayReward::table_name(), GatewayReward::db_fields())?;
+        db.create_table(
+            SubscriberReward::table_name(),
+            SubscriberReward::db_fields(),
+        )?;
+        db.create_table(
+            ServiceProviderReward::table_name(),
+            ServiceProviderReward::db_fields(),
+        )?;
+        db.create_table(
+            UnallocatedReward::table_name(),
+            UnallocatedReward::db_fields(),
+        )?;
+        db.create_table(PromotionReward::table_name(), PromotionReward::db_fields())?;
 
-        let mut gateway_rewards = Vec::new();
-        let mut subscriber_rewards = Vec::new();
-        let mut provider_rewards = Vec::new();
-        let mut unallocated_rewards = Vec::new();
-        let mut promotions = Vec::new();
-        let mut radios = Vec::new();
+        radio_reward::Rewards::create_tables(db)?;
 
-        while let Some(mobile_reward) = stream.next().await {
-            match mobile_reward {
-                MobileReward::Gateway(gateway) => {
-                    gateway_rewards.push(gateway);
+        let files = s3
+            .list_all(
+                "helium-mainnet-mobile-verified",
+                "mobile_network_reward_shares_v1",
+                time.after_utc(),
+                time.before_utc(),
+            )
+            .await?;
+
+        for file in files {
+            println!("processing file {} - {}", file.key, file.timestamp);
+
+            let mut gateway_rewards = Vec::new();
+            let mut subscriber_rewards = Vec::new();
+            let mut provider_rewards = Vec::new();
+            let mut unallocated_rewards = Vec::new();
+            let mut promotions = Vec::new();
+            let mut radios = Vec::new();
+
+            let mut stream =
+                crate::stream_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
+                    s3,
+                    "helium-mainnet-mobile-verified",
+                    file,
+                )
+                .boxed();
+
+            while let Some(mobile_reward) = stream.next().await {
+                match mobile_reward {
+                    MobileReward::Gateway(gateway) => {
+                        gateway_rewards.push(gateway);
+                    }
+                    MobileReward::Subscriber(subscriber) => {
+                        subscriber_rewards.push(subscriber);
+                    }
+                    MobileReward::ServiceProvider(sp) => {
+                        provider_rewards.push(sp);
+                    }
+                    MobileReward::Unallocated(u) => {
+                        unallocated_rewards.push(u);
+                    }
+                    MobileReward::Promotion(p) => {
+                        promotions.push(p);
+                    }
+                    MobileReward::Radio(r) => {
+                        radios.push(r);
+                    }
+                    _ => (),
                 }
-                MobileReward::Subscriber(subscriber) => {
-                    subscriber_rewards.push(subscriber);
-                }
-                MobileReward::ServiceProvider(sp) => {
-                    provider_rewards.push(sp);
-                }
-                MobileReward::Unallocated(u) => {
-                    unallocated_rewards.push(u);
-                }
-                MobileReward::Promotion(p) => {
-                    promotions.push(p);
-                }
-                MobileReward::Radio(r) => {
-                    radios.push(r);
-                }
-                _ => (),
             }
-        }
 
-        GatewayReward::persist(db, iter(gateway_rewards)).await?;
-        SubscriberReward::persist(db, iter(subscriber_rewards)).await?;
-        ServiceProviderReward::persist(db, iter(provider_rewards)).await?;
-        UnallocatedReward::persist(db, iter(unallocated_rewards)).await?;
-        PromotionReward::persist(db, iter(promotions)).await?;
-        radio_reward::Rewards::persist(db, radios).await?;
+            db.append_to_table(GatewayReward::table_name(), iter(gateway_rewards))
+                .await?;
+            db.append_to_table(SubscriberReward::table_name(), iter(subscriber_rewards))
+                .await?;
+            db.append_to_table(ServiceProviderReward::table_name(), iter(provider_rewards))
+                .await?;
+            db.append_to_table(UnallocatedReward::table_name(), iter(unallocated_rewards))
+                .await?;
+            db.append_to_table(PromotionReward::table_name(), iter(promotions))
+                .await?;
+
+            radio_reward::Rewards::persist(db, radios).await?;
+        }
 
         Ok(())
     }

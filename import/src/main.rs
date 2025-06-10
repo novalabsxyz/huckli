@@ -71,22 +71,45 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn stream_and_decode<F, T>(
+pub async fn get_and_persist<F, T>(
+    db: &db::Db,
     s3: &s3::S3,
     bucket: &str,
     prefix: &str,
+    table_name: &str,
+    fields: Vec<db::TableField>,
     time: &TimeArgs,
-) -> anyhow::Result<impl Stream<Item = T>>
+) -> anyhow::Result<()>
 where
     F: prost::Message + Default,
-    T: From<F>,
+    T: From<F> + db::Appendable,
 {
+    db.create_table(table_name, fields)?;
+
     let files = s3
         .list_all(bucket, prefix, time.after_utc(), time.before_utc())
         .await?;
 
-    Ok(s3
-        .stream_files(bucket, files)
+    for file in files {
+        println!("processing file {} - {}", file.key, file.timestamp);
+
+        let stream = stream_and_decode::<F, T>(s3, bucket, file);
+        db.append_to_table(table_name, stream).await?;
+    }
+
+    Ok(())
+}
+
+pub fn stream_and_decode<F, T>(
+    s3: &s3::S3,
+    bucket: &str,
+    file: s3::FileInfo,
+) -> impl Stream<Item = T>
+where
+    F: prost::Message + Default,
+    T: From<F>,
+{
+    s3.stream_files(bucket, vec![file])
         .then(|b| async move { F::decode(b) })
         .and_then(|f| async move { Ok(T::from(f)) })
         .filter_map(|result| async move {
@@ -97,7 +120,7 @@ where
                     None
                 }
             }
-        }))
+        })
 }
 
 #[derive(Debug, clap::Args)]

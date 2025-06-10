@@ -143,9 +143,6 @@ impl S3 {
         files: Vec<FileInfo>,
     ) -> impl Stream<Item = bytes::BytesMut> {
         futures::stream::iter(files.into_iter())
-            .inspect(|f| {
-                println!("processing {} - {}", f.key, f.timestamp);
-            })
             .then(move |f| {
                 let client = self.client.clone();
                 let self_bucket = self.bucket.clone();

@@ -78,15 +78,13 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let persist = quote! {
         impl #name {
 
-            pub async fn persist(
-                db: &db::Db,
-                stream: impl futures::Stream<Item = #name>,
-            ) -> anyhow::Result<()> {
-                db.create_table(#table_name, vec![#(#fields),*])?;
-
-                db.append_to_table(#table_name, stream).await
+            pub fn table_name() -> &'static str {
+                #table_name
             }
 
+            pub fn db_fields() -> Vec<db::TableField> {
+                vec![#(#fields),*]
+            }
         }
 
         impl db::Appendable for #name {
@@ -109,15 +107,15 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                     s3: &s3::S3,
                     time: &crate::TimeArgs,
                 ) -> anyhow::Result<()> {
-
-                    let stream = crate::stream_and_decode::<#proto, #name>(
+                    crate::get_and_persist::<#proto, #name>(
+                        db,
                         s3,
                         #bucket,
                         #prefix,
-                        time
-                    ).await?;
-
-                    Self::persist(db, stream).await
+                        #name::table_name(),
+                        #name::db_fields(),
+                        time,
+                    ).await
                 }
             }
         }
