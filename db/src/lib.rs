@@ -1,12 +1,63 @@
+use chrono::{DateTime, Utc};
+use duckdb::OptionalExt;
+
 pub struct Db {
     connection: duckdb::Connection,
 }
 
 impl Db {
     pub fn connect(file: &str) -> anyhow::Result<Self> {
-        Ok(Self {
-            connection: duckdb::Connection::open(file)?,
-        })
+        let connection = duckdb::Connection::open(file)?;
+        connection.execute("SET TimeZone = 'UTC'", [])?;
+        Self::create_files_processed_table(&connection)?;
+
+        Ok(Self { connection })
+    }
+
+    fn create_files_processed_table(connection: &duckdb::Connection) -> anyhow::Result<()> {
+        connection.execute(
+            r#"
+                CREATE TABLE IF NOT EXISTS files_processed (
+                    file_name TEXT NOT NULL,
+                    prefix TEXT NOT NULL,
+                    file_timestamp timestamptz NOT NULL,
+                    processed_at timestamptz NOT NULL
+                )
+            "#,
+            [],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn save_file_processed(
+        &self,
+        name: &str,
+        prefix: &str,
+        timestamp: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        self.connection.execute("INSERT INTO files_processed(file_name, prefix, file_timestamp, processed_at) VALUES(?, ?, ? ,?)", duckdb::params![name, prefix, timestamp, Utc::now()])?;
+
+        Ok(())
+    }
+
+    pub fn latest_file_processed_timestamp(
+        &self,
+        prefix: &str,
+    ) -> anyhow::Result<Option<DateTime<Utc>>> {
+        self.connection
+            .prepare(
+                r#"
+                    SELECT file_timestamp
+                    FROM files_processed
+                    WHERE prefix = ?
+                    ORDER BY file_timestamp DESC
+                    LIMIT 1
+                "#,
+            )?
+            .query_row([prefix], |r| r.get(0))
+            .optional()
+            .map_err(anyhow::Error::from)
     }
 
     pub fn create_table(&self, name: &str, fields: Vec<TableField>) -> anyhow::Result<()> {

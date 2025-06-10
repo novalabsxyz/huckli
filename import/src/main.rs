@@ -37,6 +37,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    args.time.validate()?;
 
     let db = db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
@@ -93,14 +94,20 @@ where
     T::create_table(db)?;
 
     let files = s3
-        .list_all(bucket, prefix, time.after_utc(), time.before_utc())
+        .list_all(
+            bucket,
+            prefix,
+            time.after_utc(db, prefix)?,
+            time.before_utc(),
+        )
         .await?;
 
     for file in files {
         println!("processing file {} - {}", file.key, file.timestamp);
 
-        let data = get_and_decode::<F, T>(s3, bucket, file).await;
+        let data = get_and_decode::<F, T>(s3, bucket, file.clone()).await;
         T::save(db, data)?;
+        db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
 
     Ok(())
@@ -133,11 +140,29 @@ pub struct TimeArgs {
     after: Option<NaiveDateTime>,
     #[arg(long)]
     before: Option<NaiveDateTime>,
+    #[arg(long, default_value_t = false)]
+    r#continue: bool,
 }
 
 impl TimeArgs {
-    pub fn after_utc(&self) -> Option<DateTime<Utc>> {
-        self.after.as_ref().map(NaiveDateTime::and_utc)
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.r#continue && self.after.is_some() {
+            anyhow::bail!("Invalid options, cannot specify both 'continue' and 'after'");
+        }
+
+        Ok(())
+    }
+
+    pub fn after_utc(&self, db: &db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+        if self.r#continue {
+            Ok(Some(
+                db.latest_file_processed_timestamp(prefix)?.ok_or_else(|| {
+                    anyhow::anyhow!("Cannot continue, no previously processed files")
+                })?,
+            ))
+        } else {
+            Ok(self.after.as_ref().map(NaiveDateTime::and_utc))
+        }
     }
 
     pub fn before_utc(&self) -> Option<DateTime<Utc>> {
