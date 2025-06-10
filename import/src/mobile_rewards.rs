@@ -4,7 +4,7 @@ use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
 
-use crate::{PublicKeyBinary, determine_timestamp};
+use crate::{DbTable, PublicKeyBinary, determine_timestamp};
 
 mod radio_reward;
 
@@ -53,20 +53,11 @@ impl MobileReward {
         s3: &s3::S3,
         time: &crate::TimeArgs,
     ) -> anyhow::Result<()> {
-        db.create_table(GatewayReward::table_name(), GatewayReward::db_fields())?;
-        db.create_table(
-            SubscriberReward::table_name(),
-            SubscriberReward::db_fields(),
-        )?;
-        db.create_table(
-            ServiceProviderReward::table_name(),
-            ServiceProviderReward::db_fields(),
-        )?;
-        db.create_table(
-            UnallocatedReward::table_name(),
-            UnallocatedReward::db_fields(),
-        )?;
-        db.create_table(PromotionReward::table_name(), PromotionReward::db_fields())?;
+        GatewayReward::create_table(db)?;
+        SubscriberReward::create_table(db)?;
+        ServiceProviderReward::create_table(db)?;
+        UnallocatedReward::create_table(db)?;
+        PromotionReward::create_table(db)?;
 
         radio_reward::Rewards::create_tables(db)?;
 
@@ -82,13 +73,6 @@ impl MobileReward {
         for file in files {
             println!("processing file {} - {}", file.key, file.timestamp);
 
-            let mut gateway_rewards = Vec::new();
-            let mut subscriber_rewards = Vec::new();
-            let mut provider_rewards = Vec::new();
-            let mut unallocated_rewards = Vec::new();
-            let mut promotions = Vec::new();
-            let mut radios = Vec::new();
-
             let mut stream =
                 crate::stream_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
                     s3,
@@ -98,6 +82,13 @@ impl MobileReward {
                 .boxed();
 
             while let Some(mobile_reward) = stream.next().await {
+                let mut gateway_rewards = Vec::new();
+                let mut subscriber_rewards = Vec::new();
+                let mut provider_rewards = Vec::new();
+                let mut unallocated_rewards = Vec::new();
+                let mut promotions = Vec::new();
+                let mut radios = Vec::new();
+
                 match mobile_reward {
                     MobileReward::Gateway(gateway) => {
                         gateway_rewards.push(gateway);
@@ -119,20 +110,20 @@ impl MobileReward {
                     }
                     _ => (),
                 }
+
+                db.append_to_table(GatewayReward::name(), iter(gateway_rewards))
+                    .await?;
+                db.append_to_table(SubscriberReward::name(), iter(subscriber_rewards))
+                    .await?;
+                db.append_to_table(ServiceProviderReward::name(), iter(provider_rewards))
+                    .await?;
+                db.append_to_table(UnallocatedReward::name(), iter(unallocated_rewards))
+                    .await?;
+                db.append_to_table(PromotionReward::name(), iter(promotions))
+                    .await?;
+
+                radio_reward::Rewards::persist(db, radios).await?;
             }
-
-            db.append_to_table(GatewayReward::table_name(), iter(gateway_rewards))
-                .await?;
-            db.append_to_table(SubscriberReward::table_name(), iter(subscriber_rewards))
-                .await?;
-            db.append_to_table(ServiceProviderReward::table_name(), iter(provider_rewards))
-                .await?;
-            db.append_to_table(UnallocatedReward::table_name(), iter(unallocated_rewards))
-                .await?;
-            db.append_to_table(PromotionReward::table_name(), iter(promotions))
-                .await?;
-
-            radio_reward::Rewards::persist(db, radios).await?;
         }
 
         Ok(())

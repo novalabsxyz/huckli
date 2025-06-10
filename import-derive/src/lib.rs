@@ -76,13 +76,12 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
     let persist = quote! {
-        impl #name {
-
-            pub fn table_name() -> &'static str {
+        impl crate::DbTable for #name {
+            fn name() -> &'static str {
                 #table_name
             }
 
-            pub fn db_fields() -> Vec<db::TableField> {
+            fn fields() -> Vec<db::TableField> {
                 vec![#(#fields),*]
             }
         }
@@ -112,8 +111,6 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                         s3,
                         #bucket,
                         #prefix,
-                        #name::table_name(),
-                        #name::db_fields(),
                         time,
                     ).await
                 }

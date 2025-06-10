@@ -4,7 +4,7 @@ use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
 
-use crate::{PublicKeyBinary, determine_timestamp, from_proto_decimal};
+use crate::{DbTable, PublicKeyBinary, determine_timestamp, from_proto_decimal};
 
 pub struct Rewards {
     radio: RadioReward,
@@ -42,13 +42,10 @@ impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)> for Rewards
 
 impl Rewards {
     pub fn create_tables(db: &db::Db) -> anyhow::Result<()> {
-        db.create_table(RadioReward::table_name(), RadioReward::db_fields())?;
-        db.create_table(
-            LocationTrustScore::table_name(),
-            LocationTrustScore::db_fields(),
-        )?;
-        db.create_table(Speedtest::table_name(), Speedtest::db_fields())?;
-        db.create_table(CoveredHex::table_name(), CoveredHex::db_fields())?;
+        RadioReward::create_table(db)?;
+        LocationTrustScore::create_table(db)?;
+        Speedtest::create_table(db)?;
+        CoveredHex::create_table(db)?;
 
         Ok(())
     }
@@ -66,14 +63,13 @@ impl Rewards {
             hexes.append(&mut r.covered_hexes);
         }
 
-        db.append_to_table(RadioReward::table_name(), iter(radios))
+        db.append_to_table(RadioReward::name(), iter(radios))
             .await?;
-        db.append_to_table(LocationTrustScore::table_name(), iter(trust_scores))
+        db.append_to_table(LocationTrustScore::name(), iter(trust_scores))
             .await?;
-        db.append_to_table(Speedtest::table_name(), iter(speedtests))
+        db.append_to_table(Speedtest::name(), iter(speedtests))
             .await?;
-        db.append_to_table(CoveredHex::table_name(), iter(hexes))
-            .await?;
+        db.append_to_table(CoveredHex::name(), iter(hexes)).await?;
 
         Ok(())
     }

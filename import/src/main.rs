@@ -71,20 +71,27 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub trait DbTable {
+    fn name() -> &'static str;
+    fn fields() -> Vec<db::TableField>;
+
+    fn create_table(db: &db::Db) -> anyhow::Result<()> {
+        db.create_table(Self::name(), Self::fields())
+    }
+}
+
 pub async fn get_and_persist<F, T>(
     db: &db::Db,
     s3: &s3::S3,
     bucket: &str,
     prefix: &str,
-    table_name: &str,
-    fields: Vec<db::TableField>,
     time: &TimeArgs,
 ) -> anyhow::Result<()>
 where
     F: prost::Message + Default,
-    T: From<F> + db::Appendable,
+    T: From<F> + db::Appendable + DbTable,
 {
-    db.create_table(table_name, fields)?;
+    T::create_table(db)?;
 
     let files = s3
         .list_all(bucket, prefix, time.after_utc(), time.before_utc())
@@ -94,7 +101,7 @@ where
         println!("processing file {} - {}", file.key, file.timestamp);
 
         let stream = stream_and_decode::<F, T>(s3, bucket, file);
-        db.append_to_table(table_name, stream).await?;
+        db.append_to_table(T::name(), stream).await?;
     }
 
     Ok(())
