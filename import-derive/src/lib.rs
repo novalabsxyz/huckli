@@ -85,6 +85,11 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
             fn fields() -> Vec<db::TableField> {
                 vec![#(#fields),*]
             }
+
+            fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
+            where Self: Sized {
+                db.append_to_table(Self::name(), data)
+            }
         }
 
         impl db::Appendable for #name {

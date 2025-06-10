@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub trait DbTable: db::Appendable {
+pub trait DbTable {
     fn name() -> &'static str;
     fn fields() -> Vec<db::TableField>;
 
@@ -81,10 +81,7 @@ pub trait DbTable: db::Appendable {
 
     fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
     where
-        Self: Sized,
-    {
-        db.append_to_table(Self::name(), data)
-    }
+        Self: Sized;
 }
 
 pub async fn get_and_persist<F, T>(
@@ -96,7 +93,7 @@ pub async fn get_and_persist<F, T>(
 ) -> anyhow::Result<()>
 where
     F: prost::Message + Default,
-    T: From<F> + db::Appendable + DbTable,
+    T: From<F> + DbTable,
 {
     T::create_table(db)?;
 

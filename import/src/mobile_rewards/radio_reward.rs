@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::{DbTable, PublicKeyBinary, determine_timestamp, from_proto_decimal};
 
+#[derive(Debug)]
 pub struct Rewards {
     radio: RadioReward,
     trust_scores: Vec<LocationTrustScore>,
@@ -49,7 +50,7 @@ impl Rewards {
         Ok(())
     }
 
-    pub async fn persist(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
+    pub fn save(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
         let mut speedtests = Vec::new();

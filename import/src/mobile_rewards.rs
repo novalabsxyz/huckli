@@ -3,10 +3,11 @@ use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
 
-use crate::{DbTable, PublicKeyBinary, determine_timestamp};
+use crate::{PublicKeyBinary, determine_timestamp};
 
 mod radio_reward;
 
+#[derive(Debug)]
 pub enum MobileReward {
     Gateway(GatewayReward),
     Subscriber(SubscriberReward),
@@ -46,12 +47,16 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
     }
 }
 
-impl MobileReward {
-    pub async fn get_and_persist(
-        db: &db::Db,
-        s3: &s3::S3,
-        time: &crate::TimeArgs,
-    ) -> anyhow::Result<()> {
+impl crate::DbTable for MobileReward {
+    fn name() -> &'static str {
+        ""
+    }
+
+    fn fields() -> Vec<db::TableField> {
+        vec![]
+    }
+
+    fn create_table(db: &db::Db) -> anyhow::Result<()> {
         GatewayReward::create_table(db)?;
         SubscriberReward::create_table(db)?;
         ServiceProviderReward::create_table(db)?;
@@ -60,66 +65,70 @@ impl MobileReward {
 
         radio_reward::Rewards::create_tables(db)?;
 
-        let files = s3
-            .list_all(
-                "helium-mainnet-mobile-verified",
-                "mobile_network_reward_shares_v1",
-                time.after_utc(),
-                time.before_utc(),
-            )
-            .await?;
+        Ok(())
+    }
 
-        for file in files {
-            println!("processing file {} - {}", file.key, file.timestamp);
+    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>
+    where
+        Self: Sized,
+    {
+        for mobile_reward in data {
+            let mut gateway_rewards = Vec::new();
+            let mut subscriber_rewards = Vec::new();
+            let mut provider_rewards = Vec::new();
+            let mut unallocated_rewards = Vec::new();
+            let mut promotions = Vec::new();
+            let mut radios = Vec::new();
 
-            let records = crate::get_and_decode::<poc_mobile::MobileRewardShare, MobileReward>(
-                s3,
-                "helium-mainnet-mobile-verified",
-                file,
-            )
-            .await;
-
-            for mobile_reward in records {
-                let mut gateway_rewards = Vec::new();
-                let mut subscriber_rewards = Vec::new();
-                let mut provider_rewards = Vec::new();
-                let mut unallocated_rewards = Vec::new();
-                let mut promotions = Vec::new();
-                let mut radios = Vec::new();
-
-                match mobile_reward {
-                    MobileReward::Gateway(gateway) => {
-                        gateway_rewards.push(gateway);
-                    }
-                    MobileReward::Subscriber(subscriber) => {
-                        subscriber_rewards.push(subscriber);
-                    }
-                    MobileReward::ServiceProvider(sp) => {
-                        provider_rewards.push(sp);
-                    }
-                    MobileReward::Unallocated(u) => {
-                        unallocated_rewards.push(u);
-                    }
-                    MobileReward::Promotion(p) => {
-                        promotions.push(p);
-                    }
-                    MobileReward::Radio(r) => {
-                        radios.push(r);
-                    }
-                    _ => (),
+            match mobile_reward {
+                MobileReward::Gateway(gateway) => {
+                    gateway_rewards.push(gateway);
                 }
-
-                GatewayReward::save(db, gateway_rewards)?;
-                SubscriberReward::save(db, subscriber_rewards)?;
-                ServiceProviderReward::save(db, provider_rewards)?;
-                UnallocatedReward::save(db, unallocated_rewards)?;
-                PromotionReward::save(db, promotions)?;
-
-                radio_reward::Rewards::persist(db, radios).await?;
+                MobileReward::Subscriber(subscriber) => {
+                    subscriber_rewards.push(subscriber);
+                }
+                MobileReward::ServiceProvider(sp) => {
+                    provider_rewards.push(sp);
+                }
+                MobileReward::Unallocated(u) => {
+                    unallocated_rewards.push(u);
+                }
+                MobileReward::Promotion(p) => {
+                    promotions.push(p);
+                }
+                MobileReward::Radio(r) => {
+                    radios.push(r);
+                }
+                _ => (),
             }
+
+            GatewayReward::save(db, gateway_rewards)?;
+            SubscriberReward::save(db, subscriber_rewards)?;
+            ServiceProviderReward::save(db, provider_rewards)?;
+            UnallocatedReward::save(db, unallocated_rewards)?;
+            PromotionReward::save(db, promotions)?;
+
+            radio_reward::Rewards::save(db, radios)?;
         }
 
         Ok(())
+    }
+}
+
+impl MobileReward {
+    pub async fn get_and_persist(
+        db: &db::Db,
+        s3: &s3::S3,
+        time: &crate::TimeArgs,
+    ) -> anyhow::Result<()> {
+        crate::get_and_persist::<poc_mobile::MobileRewardShare, MobileReward>(
+            db,
+            s3,
+            "helium-mainnet-mobile-verified",
+            "mobile_network_reward_shares_v1",
+            time,
+        )
+        .await
     }
 }
 
