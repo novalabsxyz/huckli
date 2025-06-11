@@ -13,30 +13,29 @@ pub struct Rewards {
     covered_hexes: Vec<CoveredHex>,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)> for Rewards {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)) -> Self {
-        let (start, end, reward) = value;
-        let radio = RadioReward::from((start, end, &reward));
+impl super::ToMobileReward for poc_mobile::RadioRewardV2 {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> super::MobileReward {
+        let radio = RadioReward::from((start, end, &self));
         let id = radio.id.clone();
 
-        Self {
+        super::MobileReward::Radio(Rewards {
             radio,
-            trust_scores: reward
+            trust_scores: self
                 .location_trust_scores
                 .iter()
                 .map(|lts| LocationTrustScore::from((id.clone(), lts)))
                 .collect(),
-            speedtests: reward
+            speedtests: self
                 .speedtests
                 .iter()
                 .map(|st| Speedtest::from((id.clone(), st)))
                 .collect(),
-            covered_hexes: reward
+            covered_hexes: self
                 .covered_hexes
                 .iter()
                 .map(|ch| CoveredHex::from((id.clone(), ch)))
                 .collect(),
-        }
+        })
     }
 }
 

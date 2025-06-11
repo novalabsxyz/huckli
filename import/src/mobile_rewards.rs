@@ -25,22 +25,22 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
 
         match value.reward {
             Some(poc_mobile::mobile_reward_share::Reward::GatewayReward(g)) => {
-                MobileReward::Gateway(GatewayReward::from((start, end, g)))
+                g.to_mobile_reward(start, end)
             }
             Some(poc_mobile::mobile_reward_share::Reward::SubscriberReward(s)) => {
-                MobileReward::Subscriber(SubscriberReward::from((start, end, s)))
+                s.to_mobile_reward(start, end)
             }
             Some(poc_mobile::mobile_reward_share::Reward::ServiceProviderReward(s)) => {
-                MobileReward::ServiceProvider(ServiceProviderReward::from((start, end, s)))
+                s.to_mobile_reward(start, end)
             }
             Some(poc_mobile::mobile_reward_share::Reward::UnallocatedReward(u)) => {
-                MobileReward::Unallocated(UnallocatedReward::from((start, end, u)))
+                u.to_mobile_reward(start, end)
             }
             Some(poc_mobile::mobile_reward_share::Reward::PromotionReward(p)) => {
-                MobileReward::Promotion(PromotionReward::from((start, end, p)))
+                p.to_mobile_reward(start, end)
             }
             Some(poc_mobile::mobile_reward_share::Reward::RadioRewardV2(r)) => {
-                MobileReward::Radio(radio_reward::Rewards::from((start, end, r)))
+                r.to_mobile_reward(start, end)
             }
             _ => MobileReward::Deprecated,
         }
@@ -121,6 +121,10 @@ impl MobileReward {
     }
 }
 
+trait ToMobileReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward;
+}
+
 #[derive(Debug, Import)]
 #[import(table_name = "mobile_promotion_rewards")]
 pub struct PromotionReward {
@@ -135,17 +139,15 @@ pub struct PromotionReward {
     matched_amount: u64,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::PromotionReward)> for PromotionReward {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::PromotionReward)) -> Self {
-        let (start, end, reward) = value;
-
-        Self {
+impl ToMobileReward for poc_mobile::PromotionReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward {
+        MobileReward::Promotion(PromotionReward {
             start_period: start,
             end_period: end,
-            entity: reward.entity,
-            service_provider_amount: reward.service_provider_amount,
-            matched_amount: reward.matched_amount,
-        }
+            entity: self.entity,
+            service_provider_amount: self.service_provider_amount,
+            matched_amount: self.matched_amount,
+        })
     }
 }
 
@@ -161,15 +163,14 @@ pub struct UnallocatedReward {
     amount: u64,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::UnallocatedReward)> for UnallocatedReward {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::UnallocatedReward)) -> Self {
-        let (start, end, reward) = value;
-        Self {
+impl ToMobileReward for poc_mobile::UnallocatedReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward {
+        MobileReward::Unallocated(UnallocatedReward {
             start_period: start,
             end_period: end,
-            reward_type: reward.reward_type().as_str_name().to_string(),
-            amount: reward.amount,
-        }
+            reward_type: self.reward_type().as_str_name().to_string(),
+            amount: self.amount,
+        })
     }
 }
 
@@ -185,27 +186,14 @@ pub struct ServiceProviderReward {
     amount: u64,
 }
 
-impl
-    From<(
-        DateTime<Utc>,
-        DateTime<Utc>,
-        poc_mobile::ServiceProviderReward,
-    )> for ServiceProviderReward
-{
-    fn from(
-        value: (
-            DateTime<Utc>,
-            DateTime<Utc>,
-            poc_mobile::ServiceProviderReward,
-        ),
-    ) -> Self {
-        let (start, end, reward) = value;
-        Self {
+impl ToMobileReward for poc_mobile::ServiceProviderReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward {
+        MobileReward::ServiceProvider(ServiceProviderReward {
             start_period: start,
             end_period: end,
-            service_provider: reward.service_provider_id().as_str_name().to_string(),
-            amount: reward.amount,
-        }
+            service_provider: self.service_provider_id().as_str_name().to_string(),
+            amount: self.amount,
+        })
     }
 }
 
@@ -223,17 +211,15 @@ pub struct SubscriberReward {
     verification_mapping_amount: u64,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::SubscriberReward)> for SubscriberReward {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::SubscriberReward)) -> Self {
-        let (start, end, reward) = value;
-
-        Self {
+impl ToMobileReward for poc_mobile::SubscriberReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward {
+        MobileReward::Subscriber(SubscriberReward {
             start_period: start,
             end_period: end,
-            subscriber_id: Uuid::from_slice(&reward.subscriber_id).unwrap().to_string(),
-            discovery_location_amount: reward.discovery_location_amount,
-            verification_mapping_amount: reward.verification_mapping_amount,
-        }
+            subscriber_id: Uuid::from_slice(&self.subscriber_id).unwrap().to_string(),
+            discovery_location_amount: self.discovery_location_amount,
+            verification_mapping_amount: self.verification_mapping_amount,
+        })
     }
 }
 
@@ -253,17 +239,15 @@ pub struct GatewayReward {
     price: u64,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::GatewayReward)> for GatewayReward {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::GatewayReward)) -> Self {
-        let (start, end, reward) = value;
-
-        Self {
+impl ToMobileReward for poc_mobile::GatewayReward {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> MobileReward {
+        MobileReward::Gateway(GatewayReward {
             start_period: start,
             end_period: end,
-            hotspot_key: PublicKeyBinary::from(reward.hotspot_key).to_string(),
-            dc_transfer_reward: reward.dc_transfer_reward,
-            rewardable_bytes: reward.rewardable_bytes,
-            price: reward.price,
-        }
+            hotspot_key: PublicKeyBinary::from(self.hotspot_key).to_string(),
+            dc_transfer_reward: self.dc_transfer_reward,
+            rewardable_bytes: self.rewardable_bytes,
+            price: self.price,
+        })
     }
 }
