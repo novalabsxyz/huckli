@@ -209,6 +209,7 @@ pub struct SubscriberReward {
     discovery_location_amount: u64,
     #[import(sql = "uint64")]
     verification_mapping_amount: u64,
+    reward_override_entity_key: String,
 }
 
 impl ToMobileReward for poc_mobile::SubscriberReward {
@@ -219,6 +220,7 @@ impl ToMobileReward for poc_mobile::SubscriberReward {
             subscriber_id: Uuid::from_slice(&self.subscriber_id).unwrap().to_string(),
             discovery_location_amount: self.discovery_location_amount,
             verification_mapping_amount: self.verification_mapping_amount,
+            reward_override_entity_key: self.reward_override_entity_key,
         })
     }
 }
