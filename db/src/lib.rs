@@ -1,4 +1,4 @@
-use futures::{Stream, StreamExt};
+use chrono::{DateTime, Utc};
 
 pub struct Db {
     connection: duckdb::Connection,
@@ -6,9 +6,53 @@ pub struct Db {
 
 impl Db {
     pub fn connect(file: &str) -> anyhow::Result<Self> {
-        Ok(Self {
-            connection: duckdb::Connection::open(file)?,
-        })
+        let connection = duckdb::Connection::open(file)?;
+        connection.execute("SET TimeZone = 'UTC'", [])?;
+        Self::create_files_processed_table(&connection)?;
+
+        Ok(Self { connection })
+    }
+
+    fn create_files_processed_table(connection: &duckdb::Connection) -> anyhow::Result<()> {
+        connection.execute(
+            r#"
+                CREATE TABLE IF NOT EXISTS files_processed (
+                    file_name TEXT NOT NULL,
+                    prefix TEXT NOT NULL,
+                    file_timestamp timestamptz NOT NULL,
+                    processed_at timestamptz NOT NULL
+                )
+            "#,
+            [],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn save_file_processed(
+        &self,
+        name: &str,
+        prefix: &str,
+        timestamp: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        self.connection.execute("INSERT INTO files_processed(file_name, prefix, file_timestamp, processed_at) VALUES(?, ?, ? ,?)", duckdb::params![name, prefix, timestamp, Utc::now()])?;
+
+        Ok(())
+    }
+
+    pub fn latest_file_processed_timestamp(&self, prefix: &str) -> anyhow::Result<DateTime<Utc>> {
+        self.connection
+            .prepare(
+                r#"
+                    SELECT file_timestamp
+                    FROM files_processed
+                    WHERE prefix = ?
+                    ORDER BY file_timestamp DESC
+                    LIMIT 1
+                "#,
+            )?
+            .query_row([prefix], |r| r.get(0))
+            .map_err(anyhow::Error::from)
     }
 
     pub fn create_table(&self, name: &str, fields: Vec<TableField>) -> anyhow::Result<()> {
@@ -27,16 +71,13 @@ impl Db {
         Ok(())
     }
 
-    pub async fn append_to_table<S, A>(&self, table: &str, stream: S) -> anyhow::Result<()>
+    pub fn append_to_table<A>(&self, table: &str, data: Vec<A>) -> anyhow::Result<()>
     where
-        S: Stream<Item = A>,
         A: Appendable,
     {
-        let mut stream = std::pin::pin!(stream);
-
         let mut appender = self.connection.appender(table)?;
-        while let Some(a) = stream.next().await {
-            a.append(&mut appender)?;
+        for entry in data {
+            entry.append(&mut appender)?;
         }
 
         Ok(())

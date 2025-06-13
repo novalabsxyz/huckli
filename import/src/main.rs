@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
+use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
 
 mod data_transfer;
@@ -37,6 +38,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    args.time.validate()?;
 
     let db = db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
@@ -71,22 +73,51 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn stream_and_decode<F, T>(
+pub trait DbTable: Sized {
+    fn create_table(db: &db::Db) -> anyhow::Result<()>;
+
+    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>;
+}
+
+pub async fn get_and_persist<F, T>(
+    db: &db::Db,
     s3: &s3::S3,
     bucket: &str,
     prefix: &str,
     time: &TimeArgs,
-) -> anyhow::Result<impl Stream<Item = T>>
+) -> anyhow::Result<()>
+where
+    F: prost::Message + Default,
+    T: From<F> + DbTable,
+{
+    T::create_table(db)?;
+
+    let files = s3
+        .list_all(
+            bucket,
+            prefix,
+            time.after_utc(db, prefix)?,
+            time.before_utc(),
+        )
+        .await?;
+
+    for file in files {
+        println!("processing file {} - {}", file.key, file.timestamp);
+
+        let data = get_and_decode::<F, T>(s3, bucket, file.clone()).await;
+        T::save(db, data)?;
+        db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
+    }
+
+    Ok(())
+}
+
+pub async fn get_and_decode<F, T>(s3: &s3::S3, bucket: &str, file: s3::FileInfo) -> Vec<T>
 where
     F: prost::Message + Default,
     T: From<F>,
 {
-    let files = s3
-        .list_all(bucket, prefix, time.after_utc(), time.before_utc())
-        .await?;
-
-    Ok(s3
-        .stream_files(bucket, files)
+    s3.stream_files(bucket, vec![file])
         .then(|b| async move { F::decode(b) })
         .and_then(|f| async move { Ok(T::from(f)) })
         .filter_map(|result| async move {
@@ -97,7 +128,9 @@ where
                     None
                 }
             }
-        }))
+        })
+        .collect()
+        .await
 }
 
 #[derive(Debug, clap::Args)]
@@ -106,11 +139,29 @@ pub struct TimeArgs {
     after: Option<NaiveDateTime>,
     #[arg(long)]
     before: Option<NaiveDateTime>,
+    #[arg(long, default_value_t = false)]
+    r#continue: bool,
 }
 
 impl TimeArgs {
-    pub fn after_utc(&self) -> Option<DateTime<Utc>> {
-        self.after.as_ref().map(NaiveDateTime::and_utc)
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.r#continue && self.after.is_some() {
+            anyhow::bail!("Invalid options, cannot specify both 'continue' and 'after'");
+        }
+
+        Ok(())
+    }
+
+    pub fn after_utc(&self, db: &db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+        if self.r#continue {
+            let latest = db
+                .latest_file_processed_timestamp(prefix)
+                .context("Cannot conitnue, no previously processed files")?;
+
+            Ok(Some(latest))
+        } else {
+            Ok(self.after.as_ref().map(NaiveDateTime::and_utc))
+        }
     }
 
     pub fn before_utc(&self) -> Option<DateTime<Utc>> {

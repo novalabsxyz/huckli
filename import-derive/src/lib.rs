@@ -76,17 +76,14 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
     let persist = quote! {
-        impl #name {
-
-            pub async fn persist(
-                db: &db::Db,
-                stream: impl futures::Stream<Item = #name>,
-            ) -> anyhow::Result<()> {
-                db.create_table(#table_name, vec![#(#fields),*])?;
-
-                db.append_to_table(#table_name, stream).await
+        impl crate::DbTable for #name {
+            fn create_table(db: &db::Db) -> anyhow::Result<()> {
+                db.create_table(#table_name, vec![#(#fields),*])
             }
 
+            fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+                db.append_to_table(#table_name, data)
+            }
         }
 
         impl db::Appendable for #name {
@@ -109,15 +106,13 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                     s3: &s3::S3,
                     time: &crate::TimeArgs,
                 ) -> anyhow::Result<()> {
-
-                    let stream = crate::stream_and_decode::<#proto, #name>(
+                    crate::get_and_persist::<#proto, #name>(
+                        db,
                         s3,
                         #bucket,
                         #prefix,
-                        time
-                    ).await?;
-
-                    Self::persist(db, stream).await
+                        time,
+                    ).await
                 }
             }
         }

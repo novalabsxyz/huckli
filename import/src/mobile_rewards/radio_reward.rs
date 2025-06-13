@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use futures::stream::iter;
 use helium_proto::services::poc_mobile;
 use import_derive::Import;
 use uuid::Uuid;
 
-use crate::{PublicKeyBinary, determine_timestamp, from_proto_decimal};
+use crate::{DbTable, PublicKeyBinary, determine_timestamp, from_proto_decimal};
 
+#[derive(Debug)]
 pub struct Rewards {
     radio: RadioReward,
     trust_scores: Vec<LocationTrustScore>,
@@ -13,35 +13,43 @@ pub struct Rewards {
     covered_hexes: Vec<CoveredHex>,
 }
 
-impl From<(DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)> for Rewards {
-    fn from(value: (DateTime<Utc>, DateTime<Utc>, poc_mobile::RadioRewardV2)) -> Self {
-        let (start, end, reward) = value;
-        let radio = RadioReward::from((start, end, &reward));
+impl super::ToMobileReward for poc_mobile::RadioRewardV2 {
+    fn to_mobile_reward(self, start: DateTime<Utc>, end: DateTime<Utc>) -> super::MobileReward {
+        let radio = RadioReward::from((start, end, &self));
         let id = radio.id.clone();
 
-        Self {
+        super::MobileReward::Radio(Rewards {
             radio,
-            trust_scores: reward
+            trust_scores: self
                 .location_trust_scores
                 .iter()
                 .map(|lts| LocationTrustScore::from((id.clone(), lts)))
                 .collect(),
-            speedtests: reward
+            speedtests: self
                 .speedtests
                 .iter()
                 .map(|st| Speedtest::from((id.clone(), st)))
                 .collect(),
-            covered_hexes: reward
+            covered_hexes: self
                 .covered_hexes
                 .iter()
                 .map(|ch| CoveredHex::from((id.clone(), ch)))
                 .collect(),
-        }
+        })
     }
 }
 
 impl Rewards {
-    pub async fn persist(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
+    pub fn create_tables(db: &db::Db) -> anyhow::Result<()> {
+        RadioReward::create_table(db)?;
+        LocationTrustScore::create_table(db)?;
+        Speedtest::create_table(db)?;
+        CoveredHex::create_table(db)?;
+
+        Ok(())
+    }
+
+    pub fn save(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
         let mut speedtests = Vec::new();
@@ -54,10 +62,10 @@ impl Rewards {
             hexes.append(&mut r.covered_hexes);
         }
 
-        RadioReward::persist(db, iter(radios)).await?;
-        LocationTrustScore::persist(db, iter(trust_scores)).await?;
-        Speedtest::persist(db, iter(speedtests)).await?;
-        CoveredHex::persist(db, iter(hexes)).await?;
+        RadioReward::save(db, radios)?;
+        LocationTrustScore::save(db, trust_scores)?;
+        Speedtest::save(db, speedtests)?;
+        CoveredHex::save(db, hexes)?;
 
         Ok(())
     }

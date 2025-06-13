@@ -23,6 +23,7 @@ pub struct SubscriberMappingActivityIngest {
     timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
     received_timestamp: DateTime<Utc>,
+    reward_override_entity_key: String,
 }
 
 impl From<SubscriberMappingActivityIngestReportV1> for SubscriberMappingActivityIngest {
@@ -34,6 +35,7 @@ impl From<SubscriberMappingActivityIngestReportV1> for SubscriberMappingActivity
             verification_reward_shares: report.verification_reward_shares,
             timestamp: determine_timestamp(report.timestamp),
             received_timestamp: determine_timestamp(value.received_timestamp),
+            reward_override_entity_key: report.reward_override_entity_key,
         }
     }
 }
@@ -56,6 +58,8 @@ pub struct VerifiedSubscriberMappingActivity {
     received_timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
     verification_timestamp: DateTime<Utc>,
+    reward_override_entity_key: String,
+    status: String,
 }
 
 impl From<VerifiedSubscriberMappingActivityReportV1> for VerifiedSubscriberMappingActivity {
@@ -70,6 +74,8 @@ impl From<VerifiedSubscriberMappingActivityReportV1> for VerifiedSubscriberMappi
             timestamp: determine_timestamp(report.timestamp),
             received_timestamp: determine_timestamp(ingest.received_timestamp),
             verification_timestamp: determine_timestamp(value.timestamp),
+            reward_override_entity_key: report.reward_override_entity_key.clone(),
+            status: value.status().as_str_name().to_string(),
         }
     }
 }
