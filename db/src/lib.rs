@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use duckdb::OptionalExt;
 
 pub struct Db {
     connection: duckdb::Connection,
@@ -41,10 +40,7 @@ impl Db {
         Ok(())
     }
 
-    pub fn latest_file_processed_timestamp(
-        &self,
-        prefix: &str,
-    ) -> anyhow::Result<Option<DateTime<Utc>>> {
+    pub fn latest_file_processed_timestamp(&self, prefix: &str) -> anyhow::Result<DateTime<Utc>> {
         self.connection
             .prepare(
                 r#"
@@ -56,7 +52,6 @@ impl Db {
                 "#,
             )?
             .query_row([prefix], |r| r.get(0))
-            .optional()
             .map_err(anyhow::Error::from)
     }
 

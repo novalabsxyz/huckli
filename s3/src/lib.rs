@@ -142,7 +142,7 @@ impl S3 {
         bucket: &str,
         files: Vec<FileInfo>,
     ) -> impl Stream<Item = bytes::BytesMut> {
-        futures::stream::iter(files.into_iter())
+        futures::stream::iter(files)
             .then(move |f| {
                 let client = self.client.clone();
                 let self_bucket = self.bucket.clone();
@@ -150,7 +150,7 @@ impl S3 {
                     get_bytes_stream(&client, self_bucket.as_deref().unwrap_or(bucket), &f).await
                 }
             })
-            .map_ok(|bs| stream_source(bs))
+            .map_ok(stream_source)
             .try_flatten()
             .filter_map(|result| futures::future::ready(result.ok()))
     }

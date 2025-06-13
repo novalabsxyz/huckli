@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
@@ -153,11 +154,11 @@ impl TimeArgs {
 
     pub fn after_utc(&self, db: &db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
         if self.r#continue {
-            Ok(Some(
-                db.latest_file_processed_timestamp(prefix)?.ok_or_else(|| {
-                    anyhow::anyhow!("Cannot continue, no previously processed files")
-                })?,
-            ))
+            let latest = db
+                .latest_file_processed_timestamp(prefix)
+                .context("Cannot conitnue, no previously processed files")?;
+
+            Ok(Some(latest))
         } else {
             Ok(self.after.as_ref().map(NaiveDateTime::and_utc))
         }
