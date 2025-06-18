@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+    tags: ["*"]
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      release_version:
+        description: "Release Version (e.g., 1.0.0)"
+        required: false
+        type: string
+env:
+  CARGO_INCREMENTAL: 0 # this setting is automatically applied by rust-cache but documented here for explicitness
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
+  RUSTFLAGS: "-D warnings"
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-fmt
+      cancel-in-progress: true
+    steps:
+      # - name: Install Dependencies
+      #   run: |
+      #     export DEBIAN_FRONTEND=noninteractive
+      #     apt-get update
+      #     apt-get install -y tzdata curl build-essential pkg-config libssl-dev clang lld cmake unzip
+      #     ln -fs /usr/share/zoneinfo/UTC /etc/localtime
+      #     dpkg-reconfigure -f noninteractive tzdata
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+
+      - name: build
+        run: cargo build
+
