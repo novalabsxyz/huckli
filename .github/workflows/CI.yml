@@ -28,8 +28,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
 
       - name: build
         run: cargo build
