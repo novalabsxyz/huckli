@@ -6,21 +6,8 @@ on:
   push:
     branches: ["main"]
     tags: ["*"]
-  workflow_dispatch: # Allows manual triggering
-    inputs:
-      release_version:
-        description: "Release Version (e.g., 1.0.0)"
-        required: false
-        type: string
-env:
-  CARGO_INCREMENTAL: 0 # this setting is automatically applied by rust-cache but documented here for explicitness
-  CARGO_NET_RETRY: 10
-  RUST_BACKTRACE: short
-  RUSTFLAGS: "-D warnings"
-  RUSTUP_MAX_RETRIES: 10
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     container:
