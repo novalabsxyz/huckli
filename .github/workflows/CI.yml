@@ -34,7 +34,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           # apt-get install -y tzdata curl build-essential pkg-config libssl-dev clang lld cmake unzip
-          apt-get install -y curl build-essential
+          apt-get install -y curl build-essential protobuf-compiler
           # ln -fs /usr/share/zoneinfo/UTC /etc/localtime
           # dpkg-reconfigure -f noninteractive tzdata
 
@@ -43,8 +43,6 @@ jobs:
 
       - name: Setup rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          cache: false
 
       - name: build
         run: cargo build
