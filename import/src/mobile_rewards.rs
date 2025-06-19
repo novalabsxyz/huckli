@@ -7,6 +7,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 
 mod radio_reward;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum MobileReward {
     Gateway(GatewayReward),

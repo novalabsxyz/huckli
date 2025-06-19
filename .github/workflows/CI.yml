@@ -18,10 +18,7 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
-          # apt-get install -y tzdata curl build-essential pkg-config libssl-dev clang lld cmake unzip
           sudo apt-get install -y curl build-essential protobuf-compiler
-          # ln -fs /usr/share/zoneinfo/UTC /etc/localtime
-          # dpkg-reconfigure -f noninteractive tzdata
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +37,72 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
 
-
-      - name: build
+      - name: Run build
         run: cargo build
 
+  fmt_and_clippy:
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-fmt_and_clippy
+      cancel-in-progress: true
+    steps:
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential protobuf-compiler
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run fmt
+        run: cargo fmt
+      
+      - name: Run clippy 
+        run: cargo clippy
+
+  tests:
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-tests
+      cancel-in-progress: true
+    steps:
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential protobuf-compiler
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo tests
