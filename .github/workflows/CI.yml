@@ -34,7 +34,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           # apt-get install -y tzdata curl build-essential pkg-config libssl-dev clang lld cmake unzip
-          apt-get install -y curl
+          apt-get install -y curl build-essential
           # ln -fs /usr/share/zoneinfo/UTC /etc/localtime
           # dpkg-reconfigure -f noninteractive tzdata
 
