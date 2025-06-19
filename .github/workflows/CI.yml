@@ -10,13 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-build
-      cancel-in-progress: true
-    container:
-      image: ubuntu:20.04
     concurrency: 
-      group: ${{ github.workflow }}-${{ github.ref }}-fmt
+      group: ${{ github.workflow }}-${{ github.ref }}-build
       cancel-in-progress: true
     steps:
       - name: Install Dependencies
