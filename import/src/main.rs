@@ -101,10 +101,12 @@ where
         )
         .await?;
 
-    for file in files {
-        println!("processing file {} - {}", file.key, file.timestamp);
+    let mut stream = futures::stream::iter(files)
+        .map(|file| async { (file.clone(), get_and_decode::<F, T>(s3, bucket, file).await) })
+        .buffered(10);
 
-        let data = get_and_decode::<F, T>(s3, bucket, file.clone()).await;
+    while let Some((file, data)) = stream.next().await {
+        println!("processing file {} - {}", file.key, file.timestamp);
         T::save(db, data)?;
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
@@ -117,7 +119,7 @@ where
     F: prost::Message + Default,
     T: From<F>,
 {
-    s3.stream_files(bucket, vec![file])
+    s3.stream_files(bucket, vec![file.clone()])
         .then(|b| async move { F::decode(b) })
         .and_then(|f| async move { Ok(T::from(f)) })
         .filter_map(|result| async move {
