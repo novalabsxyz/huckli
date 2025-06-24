@@ -17,4 +17,6 @@ prost.workspace = true
 rust_decimal.workspace = true
 s3 = { path = "../s3" }
 tokio.workspace = true
+tracing = "0"
+tracing-subscriber = { version = "0", features = ["env-filter"] }
 uuid.workspace = true
