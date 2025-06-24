@@ -35,6 +35,7 @@ impl From<VerifiedServiceProviderBoostedRewardsBannedRadioIngestReportV1>
 
         let hotspot_key = match req.key_type.as_ref() {
             Some(KeyType::HotspotKey(key)) => PublicKeyBinary::from(key.clone()).to_string(),
+            Some(KeyType::CbsdId(cbsd_id)) => cbsd_id.to_string(),
             _ => panic!("unknown key type"),
         };
 
