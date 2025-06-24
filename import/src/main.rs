@@ -119,7 +119,7 @@ where
     F: prost::Message + Default,
     T: From<F>,
 {
-    s3.stream_files(bucket, vec![file.clone()])
+    s3.stream_files(bucket, vec![file])
         .then(|b| async move { F::decode(b) })
         .and_then(|f| async move { Ok(T::from(f)) })
         .filter_map(|result| async move {
