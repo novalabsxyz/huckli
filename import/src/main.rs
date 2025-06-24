@@ -5,6 +5,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod data_transfer;
 mod heartbeats;
@@ -39,6 +40,11 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     args.time.validate()?;
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new("info"))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let db = db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
@@ -101,10 +107,12 @@ where
         )
         .await?;
 
-    for file in files {
-        println!("processing file {} - {}", file.key, file.timestamp);
+    let mut stream = futures::stream::iter(files)
+        .map(|file| async { (file.clone(), get_and_decode::<F, T>(s3, bucket, file).await) })
+        .buffered(10);
 
-        let data = get_and_decode::<F, T>(s3, bucket, file.clone()).await;
+    while let Some((file, data)) = stream.next().await {
+        tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
         T::save(db, data)?;
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
@@ -124,7 +132,7 @@ where
             match result {
                 Ok(t) => Some(t),
                 Err(e) => {
-                    eprintln!("error in decoding record: {}", e);
+                    tracing::error!(?e, "error in decoding record");
                     None
                 }
             }
