@@ -10,6 +10,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod data_transfer;
 mod heartbeats;
 mod mobile_rewards;
+mod sp_banned_radio;
 mod subscribers;
 mod usage;
 
@@ -20,6 +21,7 @@ enum SupportedFileTypes {
     RadioUsageStats,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
+    VerifiedCdrVerification,
     VerifiedDataTransfer,
     VerifiedSubscriberMappingActivity,
 }
@@ -65,6 +67,9 @@ async fn main() -> anyhow::Result<()> {
         }
         SupportedFileTypes::ValidatedHeartbeat => {
             heartbeats::VerifiedWifiHeartbeat::get_and_persist(&db, &s3, &args.time).await?;
+        }
+        SupportedFileTypes::VerifiedCdrVerification => {
+            sp_banned_radio::VerifiedCdrVerification::get_and_persist(&db, &s3, &args.time).await?;
         }
         SupportedFileTypes::VerifiedDataTransfer => {
             data_transfer::VerifiedDataTransferIngestReport::get_and_persist(&db, &s3, &args.time)
