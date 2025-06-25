@@ -1,6 +1,7 @@
 pub mod data_transfer;
 pub mod heartbeats;
 pub mod mobile_rewards;
+pub mod sp_banned_radio;
 pub mod subscribers;
 pub mod usage;
 
@@ -39,6 +40,9 @@ pub async fn run(
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
             subscribers::VerifiedSubscriberMappingActivity::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::VerifiedCdrVerification => {
+            sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, time).await?;
+        }
     }
     Ok(())
 }
@@ -50,6 +54,7 @@ pub enum SupportedFileTypes {
     RadioUsageStats,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
+    VerifiedCdrVerification,
     VerifiedDataTransfer,
     VerifiedSubscriberMappingActivity,
 }
