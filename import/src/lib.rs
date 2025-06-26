@@ -125,10 +125,12 @@ where
         )
         .await?;
 
-    for file in files {
-        println!("processing file {} - {}", file.key, file.timestamp);
+    let mut stream = futures::stream::iter(files)
+        .map(|file| async { (file.clone(), get_and_decode::<F, T>(s3, bucket, file).await) })
+        .buffered(10);
 
-        let data = get_and_decode::<F, T>(s3, bucket, file.clone()).await;
+    while let Some((file, data)) = stream.next().await {
+        println!("processing file {} - {}", file.key, file.timestamp);
         T::save(db, data)?;
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
