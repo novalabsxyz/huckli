@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+    tags: ["*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-build
+      cancel-in-progress: true
+    steps:
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential protobuf-compiler
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run build
+        run: cargo build
+
+  fmt_and_clippy:
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-fmt_and_clippy
+      cancel-in-progress: true
+    steps:
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential protobuf-compiler
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run fmt
+        run: cargo fmt
+      
+      - name: Run clippy 
+        run: cargo clippy
+
+  tests:
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-${{ github.ref }}-tests
+      cancel-in-progress: true
+    steps:
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential protobuf-compiler
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test
