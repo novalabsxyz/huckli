@@ -1,3 +1,4 @@
+pub mod coverage;
 pub mod data_transfer;
 pub mod heartbeats;
 pub mod mobile_rewards;
@@ -21,6 +22,12 @@ pub async fn run(
     time: &crate::TimeArgs,
 ) -> anyhow::Result<()> {
     match file_type {
+        SupportedFileTypes::CoverageObject => {
+            coverage::CoverageObjectProto::get_and_persist(db, s3, time).await?;
+        }
+        SupportedFileTypes::DataTransferBurn => {
+            data_transfer::DataTransferBurn::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::DataTransferIngest => {
             data_transfer::DataTransferIngestReport::get_and_persist(db, s3, time).await?;
         }
@@ -61,6 +68,8 @@ pub async fn run(
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum SupportedFileTypes {
+    CoverageObject,
+    DataTransferBurn,
     DataTransferIngest,
     MobileRewards,
     RadioUsageStats,

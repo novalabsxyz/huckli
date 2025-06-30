@@ -32,7 +32,7 @@ impl From<VerifiedRadioThresholdIngestReportV1> for VerifiedRadioThreshold {
         let ingest = value.report.as_ref().unwrap();
         let req = ingest.report.as_ref().unwrap();
 
-        let radio_key = if req.hotspot_pubkey.len() > 0 {
+        let radio_key = if !req.hotspot_pubkey.is_empty() {
             PublicKeyBinary::from(req.hotspot_pubkey.clone()).to_string()
         } else {
             req.cbsd_id.clone()
@@ -73,7 +73,7 @@ impl From<VerifiedInvalidatedRadioThresholdIngestReportV1> for VerifiedInvalidat
         let ingest = value.report.as_ref().unwrap();
         let req = ingest.report.as_ref().unwrap();
 
-        let radio_key = if req.hotspot_pubkey.len() > 0 {
+        let radio_key = if !req.hotspot_pubkey.is_empty() {
             PublicKeyBinary::from(req.hotspot_pubkey.clone()).to_string()
         } else {
             req.cbsd_id.clone()
