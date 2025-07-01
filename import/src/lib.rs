@@ -1,8 +1,11 @@
+pub mod coverage;
 pub mod data_transfer;
 pub mod heartbeats;
 pub mod mobile_rewards;
+pub mod radio_thresholds;
 pub mod sp_banned_radio;
 pub mod subscribers;
+pub mod unique_connections;
 pub mod usage;
 
 use std::str::FromStr;
@@ -19,6 +22,12 @@ pub async fn run(
     time: &crate::TimeArgs,
 ) -> anyhow::Result<()> {
     match file_type {
+        SupportedFileTypes::CoverageObject => {
+            coverage::CoverageObjectProto::get_and_persist(db, s3, time).await?;
+        }
+        SupportedFileTypes::DataTransferBurn => {
+            data_transfer::DataTransferBurn::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::DataTransferIngest => {
             data_transfer::DataTransferIngestReport::get_and_persist(db, s3, time).await?;
         }
@@ -34,14 +43,24 @@ pub async fn run(
         SupportedFileTypes::ValidatedHeartbeat => {
             heartbeats::VerifiedWifiHeartbeat::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::VerifiedCdrVerification => {
+            sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::VerifiedDataTransfer => {
             data_transfer::VerifiedDataTransferIngestReport::get_and_persist(db, s3, time).await?;
+        }
+        SupportedFileTypes::VerifiedInvalidatedRadioThreshold => {
+            radio_thresholds::VerifiedInvalidatedRadioThreshold::get_and_persist(db, s3, time)
+                .await?;
+        }
+        SupportedFileTypes::VerifiedRadioThreshold => {
+            radio_thresholds::VerifiedRadioThreshold::get_and_persist(db, s3, time).await?;
         }
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
             subscribers::VerifiedSubscriberMappingActivity::get_and_persist(db, s3, time).await?;
         }
-        SupportedFileTypes::VerifiedCdrVerification => {
-            sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, time).await?;
+        SupportedFileTypes::VerifiedUniqueConnections => {
+            unique_connections::VerifiedUniqueConnections::get_and_persist(db, s3, time).await?;
         }
     }
     Ok(())
@@ -49,6 +68,8 @@ pub async fn run(
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum SupportedFileTypes {
+    CoverageObject,
+    DataTransferBurn,
     DataTransferIngest,
     MobileRewards,
     RadioUsageStats,
@@ -56,7 +77,10 @@ pub enum SupportedFileTypes {
     ValidatedHeartbeat,
     VerifiedCdrVerification,
     VerifiedDataTransfer,
+    VerifiedInvalidatedRadioThreshold,
     VerifiedSubscriberMappingActivity,
+    VerifiedRadioThreshold,
+    VerifiedUniqueConnections,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -130,7 +154,7 @@ where
         .buffered(10);
 
     while let Some((file, data)) = stream.next().await {
-        println!("processing file {} - {}", file.key, file.timestamp);
+        tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
         T::save(db, data)?;
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }

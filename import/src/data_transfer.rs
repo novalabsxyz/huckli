@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
-use helium_proto::services::poc_mobile::{
-    DataTransferSessionIngestReportV1, VerifiedDataTransferIngestReportV1,
+use helium_proto::services::{
+    packet_verifier::ValidDataTransferSession,
+    poc_mobile::{DataTransferSessionIngestReportV1, VerifiedDataTransferIngestReportV1},
 };
 use import_derive::Import;
 
@@ -92,6 +93,47 @@ impl From<VerifiedDataTransferIngestReportV1> for VerifiedDataTransferIngestRepo
             received_timestamp: determine_timestamp(ingest.received_timestamp),
             verified_timestamp: determine_timestamp(value.timestamp),
             status: value.status().as_str_name().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Import)]
+#[import(s3decode(
+    proto = ValidDataTransferSession,
+    bucket = "helium-mainnet-mobile-packet-verifier",
+    prefix = "valid_data_transfer_session",
+))]
+pub struct DataTransferBurn {
+    hotspot_key: String,
+    #[import(sql = "uint64")]
+    upload_bytes: u64,
+    #[import(sql = "uint64")]
+    download_bytes: u64,
+    #[import(sql = "uint64")]
+    num_dcs: u64,
+    payer: String,
+    #[import(sql = "timestamptz")]
+    first_timestamp: DateTime<Utc>,
+    #[import(sql = "timestamptz")]
+    last_timestamp: DateTime<Utc>,
+    #[import(sql = "uint64")]
+    rewardable_bytes: u64,
+    #[import(sql = "timestamptz")]
+    burn_timestamp: DateTime<Utc>,
+}
+
+impl From<ValidDataTransferSession> for DataTransferBurn {
+    fn from(value: ValidDataTransferSession) -> Self {
+        Self {
+            hotspot_key: PublicKeyBinary::from(value.pub_key.clone()).to_string(),
+            upload_bytes: value.upload_bytes,
+            download_bytes: value.download_bytes,
+            num_dcs: value.num_dcs,
+            payer: PublicKeyBinary::from(value.payer.clone()).to_string(),
+            first_timestamp: determine_timestamp(value.first_timestamp),
+            last_timestamp: determine_timestamp(value.last_timestamp),
+            rewardable_bytes: value.rewardable_bytes,
+            burn_timestamp: determine_timestamp(value.burn_timestamp),
         }
     }
 }
