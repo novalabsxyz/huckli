@@ -16,6 +16,7 @@ import-derive = { path = "../import-derive" }
 prost.workspace = true
 rust_decimal.workspace = true
 s3 = { path = "../s3" }
+serde_json.workspace = true
 tokio.workspace = true
 tracing = "0"
 tracing-subscriber = { version = "0", features = ["env-filter"] }

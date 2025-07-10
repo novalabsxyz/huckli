@@ -38,6 +38,8 @@ impl FromStr for FileInfo {
 #[derive(Debug, clap::Args)]
 pub struct S3Args {
     #[arg(short, long)]
+    prefix: Option<String>,
+    #[arg(short, long)]
     bucket: Option<String>,
     #[arg(short, long, default_value = "us-west-2")]
     region: String,
@@ -60,6 +62,7 @@ impl S3Args {
         S3 {
             client,
             bucket: self.bucket.clone(),
+            prefix: self.prefix.clone(),
         }
     }
 }
@@ -67,6 +70,7 @@ impl S3Args {
 pub struct S3 {
     client: aws_sdk_s3::Client,
     bucket: Option<String>,
+    prefix: Option<String>,
 }
 
 impl S3 {
@@ -81,6 +85,7 @@ impl S3 {
         A: Into<Option<DateTime<Utc>>>,
         B: Into<Option<DateTime<Utc>>>,
     {
+        let prefix = self.prefix.as_deref().unwrap_or(prefix);
         let start_after = after
             .into()
             .map(|dt| format!("{}.{}.gz", prefix, dt.timestamp_millis()));
