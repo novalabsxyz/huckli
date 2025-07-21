@@ -34,6 +34,9 @@ pub async fn run(
         SupportedFileTypes::MobileRewards => {
             mobile_rewards::MobileReward::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::MobileRewardManifest => {
+            mobile_rewards::MobileRewardManifest::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::RadioUsageStats => {
             usage::RadioUsageStats::get_and_persist(db, s3, time).await?;
         }
@@ -72,6 +75,7 @@ pub enum SupportedFileTypes {
     DataTransferBurn,
     DataTransferIngest,
     MobileRewards,
+    MobileRewardManifest,
     RadioUsageStats,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
