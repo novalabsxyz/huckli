@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use aws_sdk_s3::Client;
 use chrono::{DateTime, TimeZone, Utc};
 use futures::{Stream, StreamExt, TryStream, TryStreamExt};
 use regex::Regex;
@@ -50,14 +51,14 @@ pub struct S3Args {
 impl S3Args {
     pub async fn connect(&self) -> S3 {
         let region = aws_config::Region::new(self.region.clone());
-        let mut loader = aws_config::from_env().region(region);
+        let sdk_config = aws_config::load_from_env().await;
+        let mut s3_config_builder = aws_sdk_s3::config::Builder::from(&sdk_config);
+        s3_config_builder.set_region(Some(region));
+        s3_config_builder.set_endpoint_url(self.endpoint.clone());
+        s3_config_builder.set_force_path_style(Some(true));
 
-        if let Some(endpoint_url) = self.endpoint.as_ref() {
-            loader = loader.endpoint_url(endpoint_url);
-        }
-
-        let config = loader.load().await;
-        let client = aws_sdk_s3::Client::new(&config);
+        let s3_config = s3_config_builder.build();
+        let client = Client::from_conf(s3_config);
 
         S3 {
             client,
