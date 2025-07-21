@@ -1,5 +1,5 @@
 [package]
-name = "import"
+name = "huckli-import"
 version.workspace = true
 edition.workspace = true
 
@@ -8,16 +8,16 @@ anyhow.workspace = true
 bs58.workspace = true
 chrono.workspace = true
 clap.workspace = true
-db = { path = "../db" }
+huckli-db = { path = "../huckli-db" }
 duckdb.workspace = true
 futures.workspace = true
 helium-proto.workspace = true
-import-derive = { path = "../import-derive" }
+huckli-import-derive = { path = "../huckli-import-derive" }
 prost.workspace = true
 rust_decimal.workspace = true
-s3 = { path = "../s3" }
-serde_json.workspace = true
+huckli-s3 = { path = "../huckli-s3" }
 tokio.workspace = true
 tracing = "0"
 tracing-subscriber = { version = "0", features = ["env-filter"] }
 uuid.workspace = true
+serde_json.workspace = true

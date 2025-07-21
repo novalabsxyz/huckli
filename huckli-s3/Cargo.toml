@@ -1,11 +1,11 @@
 [package]
-name = "s3"
+name = "huckli-s3"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-async-compression = {version = "0", features = ["tokio", "gzip"]}
+async-compression = { version = "0", features = ["tokio", "gzip"] }
 aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1"
 bytes.workspace = true

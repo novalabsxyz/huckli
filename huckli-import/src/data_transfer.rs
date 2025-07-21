@@ -3,7 +3,7 @@ use helium_proto::services::{
     packet_verifier::ValidDataTransferSession,
     poc_mobile::{DataTransferSessionIngestReportV1, VerifiedDataTransferIngestReportV1},
 };
-use import_derive::Import;
+use huckli_import_derive::Import;
 
 use crate::{PublicKeyBinary, determine_timestamp};
 

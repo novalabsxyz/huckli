@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::Heartbeat;
-use import_derive::Import;
+use huckli_import_derive::Import;
 use uuid::Uuid;
 
 use crate::{PublicKeyBinary, determine_timestamp};

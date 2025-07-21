@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::{
     SubscriberMappingActivityIngestReportV1, VerifiedSubscriberMappingActivityReportV1,
 };
-use import_derive::Import;
+use huckli_import_derive::Import;
 use uuid::Uuid;
 
 use crate::determine_timestamp;
