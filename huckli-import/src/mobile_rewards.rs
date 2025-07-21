@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use helium_proto::{RewardManifest, services::poc_mobile};
-use import_derive::Import;
+use huckli_import_derive::Import;
 use uuid::Uuid;
 
 use crate::{PublicKeyBinary, determine_timestamp};
@@ -49,7 +49,7 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
 }
 
 impl crate::DbTable for MobileReward {
-    fn create_table(db: &db::Db) -> anyhow::Result<()> {
+    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
         GatewayReward::create_table(db)?;
         SubscriberReward::create_table(db)?;
         ServiceProviderReward::create_table(db)?;
@@ -61,7 +61,7 @@ impl crate::DbTable for MobileReward {
         Ok(())
     }
 
-    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
         let mut gateway_rewards = Vec::new();
         let mut subscriber_rewards = Vec::new();
         let mut provider_rewards = Vec::new();
@@ -107,8 +107,8 @@ impl crate::DbTable for MobileReward {
 
 impl MobileReward {
     pub async fn get_and_persist(
-        db: &db::Db,
-        s3: &s3::S3,
+        db: &huckli_db::Db,
+        s3: &huckli_s3::S3,
         time: &crate::TimeArgs,
     ) -> anyhow::Result<()> {
         crate::get_and_persist::<poc_mobile::MobileRewardShare, MobileReward>(
@@ -279,7 +279,7 @@ impl From<RewardManifest> for MobileRewardManifest {
         let written_files: Vec<serde_json::Value> = value
             .written_files
             .into_iter()
-            .map(|f| serde_json::Value::String(f))
+            .map(serde_json::Value::String)
             .collect();
 
         Self {

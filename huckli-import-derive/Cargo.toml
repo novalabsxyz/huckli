@@ -1,5 +1,5 @@
 [package]
-name = "import-derive"
+name = "huckli-import-derive"
 version = "0.0.0"
 edition = "2021"
 
@@ -10,5 +10,8 @@ proc-macro = true
 darling = "0"
 quote = "1"
 proc-macro2 = "1.0"
-syn = { version = "2.0", default-features = true, features = ["extra-traits", "full"] }
+syn = { version = "2.0", default-features = true, features = [
+  "extra-traits",
+  "full",
+] }
 case = "1.0.0"

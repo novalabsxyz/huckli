@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile;
-use import_derive::Import;
+use huckli_import_derive::Import;
 use uuid::Uuid;
 
 use crate::{DbTable, PublicKeyBinary, determine_timestamp, from_proto_decimal};
@@ -40,7 +40,7 @@ impl super::ToMobileReward for poc_mobile::RadioRewardV2 {
 }
 
 impl Rewards {
-    pub fn create_tables(db: &db::Db) -> anyhow::Result<()> {
+    pub fn create_tables(db: &huckli_db::Db) -> anyhow::Result<()> {
         RadioReward::create_table(db)?;
         LocationTrustScore::create_table(db)?;
         Speedtest::create_table(db)?;
@@ -49,7 +49,7 @@ impl Rewards {
         Ok(())
     }
 
-    pub fn save(db: &db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
+    pub fn save(db: &huckli_db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
         let mut speedtests = Vec::new();

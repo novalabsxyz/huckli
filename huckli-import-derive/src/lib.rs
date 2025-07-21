@@ -28,7 +28,7 @@ impl ToTokens for Field {
             quote! { None }
         };
 
-        tokens.extend(quote! { db::TableField::new(#name.to_string(), #sql, #nullable) });
+        tokens.extend(quote! { huckli_db::TableField::new(#name.to_string(), #sql, #nullable) });
     }
 }
 
@@ -77,16 +77,16 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     let persist = quote! {
         impl crate::DbTable for #name {
-            fn create_table(db: &db::Db) -> anyhow::Result<()> {
+            fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
                 db.create_table(#table_name, vec![#(#fields),*])
             }
 
-            fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+            fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
                 db.append_to_table(#table_name, data)
             }
         }
 
-        impl db::Appendable for #name {
+        impl huckli_db::Appendable for #name {
             fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()> {
                 appender.append_row(duckdb::params![#(self.#field_names),*])
                     .map_err(anyhow::Error::from)
@@ -102,8 +102,8 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
         quote! {
             impl #name {
                 pub async fn get_and_persist(
-                    db: &db::Db,
-                    s3: &s3::S3,
+                    db: &huckli_db::Db,
+                    s3: &huckli_s3::S3,
                     time: &crate::TimeArgs,
                 ) -> anyhow::Result<()> {
                     crate::get_and_persist::<#proto, #name>(

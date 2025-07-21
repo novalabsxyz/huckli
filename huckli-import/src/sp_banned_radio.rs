@@ -3,7 +3,7 @@ use helium_proto::services::poc_mobile::{
     VerifiedServiceProviderBoostedRewardsBannedRadioIngestReportV1,
     service_provider_boosted_rewards_banned_radio_req_v1::KeyType,
 };
-use import_derive::Import;
+use huckli_import_derive::Import;
 
 use crate::{PublicKeyBinary, determine_timestamp};
 

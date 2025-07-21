@@ -17,8 +17,8 @@ use rust_decimal::Decimal;
 
 pub async fn run(
     file_type: SupportedFileTypes,
-    db: &db::Db,
-    s3: &s3::S3,
+    db: &huckli_db::Db,
+    s3: &huckli_s3::S3,
     time: &crate::TimeArgs,
 ) -> anyhow::Result<()> {
     match file_type {
@@ -126,14 +126,14 @@ pub fn determine_timestamp(timestamp: u64) -> DateTime<Utc> {
 }
 
 pub trait DbTable: Sized {
-    fn create_table(db: &db::Db) -> anyhow::Result<()>;
+    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()>;
 
-    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()>;
+    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()>;
 }
 
 pub async fn get_and_persist<F, T>(
-    db: &db::Db,
-    s3: &s3::S3,
+    db: &huckli_db::Db,
+    s3: &huckli_s3::S3,
     bucket: &str,
     prefix: &str,
     time: &TimeArgs,
@@ -166,7 +166,7 @@ where
     Ok(())
 }
 
-pub async fn get_and_decode<F, T>(s3: &s3::S3, bucket: &str, file: s3::FileInfo) -> Vec<T>
+pub async fn get_and_decode<F, T>(s3: &huckli_s3::S3, bucket: &str, file: huckli_s3::FileInfo) -> Vec<T>
 where
     F: prost::Message + Default,
     T: From<F>,
@@ -178,7 +178,7 @@ where
             match result {
                 Ok(t) => Some(t),
                 Err(e) => {
-                    eprintln!("error in decoding record: {}", e);
+                    eprintln!("error in decoding record: {e}");
                     None
                 }
             }
@@ -206,7 +206,7 @@ impl TimeArgs {
         Ok(())
     }
 
-    pub fn after_utc(&self, db: &db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+    pub fn after_utc(&self, db: &huckli_db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
         if self.r#continue {
             let latest = db
                 .latest_file_processed_timestamp(prefix)

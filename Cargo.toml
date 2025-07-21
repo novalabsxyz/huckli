@@ -3,10 +3,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = [
-    "import-derive",
-    "import","s3", "db",
-]
+members = ["huckli-import-derive", "huckli-import", "huckli-s3", "huckli-db"]
 resolver = "3"
 
 [workspace.dependencies]

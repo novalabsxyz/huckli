@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::{
     VerifiedInvalidatedRadioThresholdIngestReportV1, VerifiedRadioThresholdIngestReportV1,
 };
-use import_derive::Import;
+use huckli_import_derive::Import;
 
 use crate::{PublicKeyBinary, determine_timestamp};
 

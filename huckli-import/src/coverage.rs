@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::{CoverageObjectV1, coverage_object_req_v1};
-use import_derive::Import;
+use huckli_import_derive::Import;
 
 use crate::{PublicKeyBinary, determine_timestamp};
 
@@ -11,14 +11,14 @@ pub struct CoverageObjectProto {
 }
 
 impl crate::DbTable for CoverageObjectProto {
-    fn create_table(db: &db::Db) -> anyhow::Result<()> {
+    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
         CoverageObject::create_table(db)?;
         CoverageLocation::create_table(db)?;
 
         Ok(())
     }
 
-    fn save(db: &db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
         let mut objects = Vec::new();
         let mut locations = Vec::new();
 
@@ -36,8 +36,8 @@ impl crate::DbTable for CoverageObjectProto {
 
 impl CoverageObjectProto {
     pub async fn get_and_persist(
-        db: &db::Db,
-        s3: &s3::S3,
+        db: &huckli_db::Db,
+        s3: &huckli_s3::S3,
         time: &crate::TimeArgs,
     ) -> anyhow::Result<()> {
         crate::get_and_persist::<CoverageObjectV1, CoverageObjectProto>(

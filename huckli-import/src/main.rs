@@ -1,5 +1,5 @@
 use clap::Parser;
-use import::{SupportedFileTypes, TimeArgs};
+use huckli_import::{SupportedFileTypes, TimeArgs};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, clap::Parser)]
@@ -9,7 +9,7 @@ struct Args {
     #[arg(long)]
     file_type: SupportedFileTypes,
     #[command(flatten)]
-    s3: s3::S3Args,
+    s3: huckli_s3::S3Args,
     #[command(flatten)]
     time: TimeArgs,
 }
@@ -24,8 +24,8 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db = db::Db::connect(&args.db)?;
+    let db = huckli_db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
 
-    import::run(args.file_type, &db, &s3, &args.time).await
+    huckli_import::run(args.file_type, &db, &s3, &args.time).await
 }

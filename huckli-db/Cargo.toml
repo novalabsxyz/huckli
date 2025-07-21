@@ -1,5 +1,5 @@
 [package]
-name = "db"
+name = "huckli-db"
 version.workspace = true
 edition.workspace = true
 
