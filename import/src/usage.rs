@@ -30,11 +30,37 @@ pub struct RadioUsageStats {
     timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
     received_timestamp: DateTime<Utc>,
+    #[import(sql = "json")]
+    carrier_transfer: serde_json::Value,
 }
 
 impl From<RadioUsageStatsIngestReportV1> for RadioUsageStats {
     fn from(value: RadioUsageStatsIngestReportV1) -> Self {
         let req = value.report.as_ref().unwrap();
+
+        let carrier_transfer = req
+            .carrier_transfer_info
+            .iter()
+            .map(|i| {
+                let mut m = serde_json::Map::new();
+                m.insert(
+                    "carrier_id".to_string(),
+                    serde_json::Value::String(i.carrier_id().as_str_name().to_string()),
+                );
+
+                m.insert(
+                    "transfer_bytes".to_string(),
+                    serde_json::Value::Number(i.transfer_bytes.into()),
+                );
+
+                m.insert(
+                    "user_count".to_string(),
+                    serde_json::Value::Number(i.user_count.into()),
+                );
+
+                serde_json::Value::Object(m)
+            })
+            .collect::<Vec<_>>();
 
         Self {
             hotspot_key: PublicKeyBinary::from(req.hotspot_pubkey.clone()).to_string(),
@@ -47,6 +73,7 @@ impl From<RadioUsageStatsIngestReportV1> for RadioUsageStats {
             offload_transfer_bytes: req.offload_transfer_bytes,
             timestamp: determine_timestamp(req.timestamp),
             received_timestamp: determine_timestamp(value.received_timestamp),
+            carrier_transfer: serde_json::Value::Array(carrier_transfer),
         }
     }
 }

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use helium_proto::services::poc_mobile;
+use helium_proto::{RewardManifest, services::poc_mobile};
 use import_derive::Import;
 use uuid::Uuid;
 
@@ -252,5 +252,42 @@ impl ToMobileReward for poc_mobile::GatewayReward {
             rewardable_bytes: self.rewardable_bytes,
             price: self.price,
         })
+    }
+}
+
+#[derive(Debug, Import)]
+#[import(s3decode(
+    proto = RewardManifest,
+    bucket = "helium-mainnet-mobile-verified",
+    prefix = "network_reward_manifest_v1",
+))]
+pub struct MobileRewardManifest {
+    #[import(sql = "timestamptz")]
+    start_period: DateTime<Utc>,
+    #[import(sql = "timestamptz")]
+    end_period: DateTime<Utc>,
+    #[import(sql = "uint64")]
+    epoch: u64,
+    #[import(sql = "uint64")]
+    price: u64,
+    #[import(sql = "json")]
+    written_files: serde_json::Value,
+}
+
+impl From<RewardManifest> for MobileRewardManifest {
+    fn from(value: RewardManifest) -> Self {
+        let written_files: Vec<serde_json::Value> = value
+            .written_files
+            .into_iter()
+            .map(|f| serde_json::Value::String(f))
+            .collect();
+
+        Self {
+            start_period: determine_timestamp(value.start_timestamp),
+            end_period: determine_timestamp(value.end_timestamp),
+            epoch: value.epoch,
+            price: value.price,
+            written_files: serde_json::Value::Array(written_files),
+        }
     }
 }
