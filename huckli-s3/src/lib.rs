@@ -34,7 +34,6 @@ where
             Err(e) => S3Error::Rpc(e.into()),
         }
     }
-
 }
 
 #[derive(Debug, Clone)]

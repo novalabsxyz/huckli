@@ -1,5 +1,7 @@
 use async_duckdb::{Client, ClientBuilder};
 use chrono::{DateTime, Utc};
+use futures::TryFutureExt;
+use itertools::Itertools;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -33,8 +35,8 @@ impl Db {
         let query = query.to_string();
         self.client
             .conn(move |conn| conn.execute(&query, []))
-            .await
             .map_err(DbError::from)
+            .await
     }
 
     async fn create_files_processed_table(client: &Client) -> Result<(), DbError> {
@@ -97,18 +99,15 @@ impl Db {
                 let row = stmt.query_row([prefix], |r| r.get(0))?;
                 Ok(row)
             })
-            .await
             .map_err(DbError::from)
+            .await
     }
 
     pub async fn create_table(&self, name: &str, fields: Vec<TableField>) -> Result<(), DbError> {
         let statement = format!(
             "CREATE TABLE IF NOT EXISTS {} ({})",
             name,
-            fields
-                .iter()
-                .map(|f| f.to_sql())
-                .join(","),
+            fields.iter().map(|f| f.to_sql()).join(","),
         );
 
         self.execute(&statement).await?;
@@ -129,8 +128,8 @@ impl Db {
                 }
                 Ok(())
             })
-            .await
             .map_err(DbError::from)
+            .await
     }
 }
 

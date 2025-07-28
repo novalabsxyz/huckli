@@ -19,6 +19,7 @@ futures = "0"
 helium-proto = { git = "https://github.com/helium/proto", branch = "master", features = [
   "services",
 ] }
+itertools = "0.14"
 prost = "0.12"
 rust_decimal = "1"
 serde_json = "1"

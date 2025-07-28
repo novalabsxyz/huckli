@@ -9,5 +9,6 @@ chrono.workspace = true
 async-duckdb.workspace = true
 duckdb.workspace = true
 futures.workspace = true
+itertools.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

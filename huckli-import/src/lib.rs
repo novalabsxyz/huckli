@@ -14,7 +14,7 @@ pub use huckli_s3 as s3;
 
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
-use futures::{StreamExt, TryStreamExt};
+use futures::{StreamExt, TryFutureExt, TryStreamExt};
 use rust_decimal::Decimal;
 use s3::FileInfo;
 use std::str::FromStr;
@@ -257,8 +257,8 @@ impl TimeArgs {
         if self.r#continue {
             let latest = db
                 .latest_file_processed_timestamp(prefix)
-                .await
-                .map_err(ImportError::from)?;
+                .map_err(ImportError::from)
+                .await?;
 
             Ok(Some(latest))
         } else {
