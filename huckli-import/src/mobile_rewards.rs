@@ -1,7 +1,8 @@
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use helium_proto::{RewardManifest, services::poc_mobile};
-use huckli_s3::FileInfo;
 use huckli_import_derive::Import;
+use huckli_s3::FileInfo;
 use uuid::Uuid;
 
 use crate::{PublicKeyBinary, determine_timestamp};
@@ -49,21 +50,22 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
     }
 }
 
+#[async_trait]
 impl crate::DbTable for MobileReward {
     type Item = Self;
-    fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
-        GatewayReward::create_table(db)?;
-        SubscriberReward::create_table(db)?;
-        ServiceProviderReward::create_table(db)?;
-        UnallocatedReward::create_table(db)?;
-        PromotionReward::create_table(db)?;
+    async fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
+        GatewayReward::create_table(db).await?;
+        SubscriberReward::create_table(db).await?;
+        ServiceProviderReward::create_table(db).await?;
+        UnallocatedReward::create_table(db).await?;
+        PromotionReward::create_table(db).await?;
 
-        radio_reward::Rewards::create_tables(db)?;
+        radio_reward::Rewards::create_tables(db).await?;
 
         Ok(())
     }
 
-    fn save(db: &huckli_db::Db, data: Vec<Self>) -> Result<(), huckli_db::DbError> {
+    async fn save(db: &huckli_db::Db, data: Vec<Self>) -> Result<(), huckli_db::DbError> {
         let mut gateway_rewards = Vec::new();
         let mut subscriber_rewards = Vec::new();
         let mut provider_rewards = Vec::new();
@@ -95,13 +97,13 @@ impl crate::DbTable for MobileReward {
             }
         }
 
-        GatewayReward::save(db, gateway_rewards)?;
-        SubscriberReward::save(db, subscriber_rewards)?;
-        ServiceProviderReward::save(db, provider_rewards)?;
-        UnallocatedReward::save(db, unallocated_rewards)?;
-        PromotionReward::save(db, promotions)?;
+        GatewayReward::save(db, gateway_rewards).await?;
+        SubscriberReward::save(db, subscriber_rewards).await?;
+        ServiceProviderReward::save(db, provider_rewards).await?;
+        UnallocatedReward::save(db, unallocated_rewards).await?;
+        PromotionReward::save(db, promotions).await?;
 
-        radio_reward::Rewards::save(db, radios)?;
+        radio_reward::Rewards::save(db, radios).await?;
 
         Ok(())
     }
@@ -117,11 +119,7 @@ impl MobileReward {
         time: &crate::TimeArgs,
     ) -> Result<(), crate::ImportError> {
         crate::get_and_persist::<poc_mobile::MobileRewardShare, MobileReward>(
-            db,
-            s3,
-            BUCKET,
-            PREFIX,
-            time,
+            db, s3, BUCKET, PREFIX, time,
         )
         .await
     }
@@ -132,10 +130,7 @@ impl MobileReward {
         file_infos: &[FileInfo],
     ) -> Result<(), crate::ImportError> {
         crate::get_and_persist_files::<poc_mobile::MobileRewardShare, MobileReward>(
-            db,
-            s3,
-            BUCKET,
-            file_infos,
+            db, s3, BUCKET, file_infos,
         )
         .await
     }
@@ -273,7 +268,6 @@ impl ToMobileReward for poc_mobile::GatewayReward {
         })
     }
 }
-
 
 #[derive(Debug, Import)]
 #[import(s3decode(

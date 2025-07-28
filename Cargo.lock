@@ -306,6 +306,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-duckdb"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a390d573879f8676db2226580038c9e3ba5a43e39a8258347e0065da06b72cb3"
+dependencies = [
+ "crossbeam-channel",
+ "duckdb",
+ "futures-channel",
+ "futures-util",
+]
+
+[[package]]
 name = "async-stream"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1248,6 +1260,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-utils"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+
+[[package]]
 name = "crunchy"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1872,10 +1899,12 @@ name = "huckli-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-duckdb",
  "chrono",
  "duckdb",
  "futures",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1883,6 +1912,8 @@ name = "huckli-import"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-duckdb",
+ "async-trait",
  "bs58",
  "chrono",
  "clap",
@@ -1908,6 +1939,7 @@ version = "0.0.0"
 dependencies = [
  "case",
  "darling",
+ "duckdb",
  "proc-macro2",
  "quote",
  "syn 1.0.109",

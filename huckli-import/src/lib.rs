@@ -8,10 +8,11 @@ pub mod subscribers;
 pub mod unique_connections;
 pub mod usage;
 
-pub use duckdb;
+pub use async_duckdb;
 pub use huckli_db as db;
 pub use huckli_s3 as s3;
 
+use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
@@ -140,11 +141,12 @@ pub fn determine_timestamp(timestamp: u64) -> DateTime<Utc> {
     }
 }
 
+#[async_trait]
 pub trait DbTable: Sized {
     type Item;
 
-    fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError>;
-    fn save(db: &huckli_db::Db, data: Vec<Self::Item>) -> Result<(), huckli_db::DbError>;
+    async fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError>;
+    async fn save(db: &huckli_db::Db, data: Vec<Self::Item>) -> Result<(), huckli_db::DbError>;
 }
 
 pub async fn get_and_persist<F, T>(
@@ -158,13 +160,13 @@ where
     F: prost::Message + Default,
     T: From<F> + DbTable<Item = T>,
 {
-    T::create_table(db)?;
+    T::create_table(db).await?;
 
     let files = s3
         .list_all(
             bucket,
             prefix,
-            time.after_utc(db, prefix)?,
+            time.after_utc(db, prefix).await?,
             time.before_utc(),
         )
         .await?;
@@ -195,8 +197,9 @@ where
 
     while let Some((file, data)) = stream.next().await {
         tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
-        T::save(db, data)?;
-        db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
+        T::save(db, data).await?;
+        db.save_file_processed(&file.key, &file.prefix, file.timestamp)
+            .await?;
     }
 
     Ok(())
@@ -246,7 +249,7 @@ impl TimeArgs {
         Ok(())
     }
 
-    pub fn after_utc(
+    pub async fn after_utc(
         &self,
         db: &huckli_db::Db,
         prefix: &str,
@@ -254,6 +257,7 @@ impl TimeArgs {
         if self.r#continue {
             let latest = db
                 .latest_file_processed_timestamp(prefix)
+                .await
                 .map_err(ImportError::from)?;
 
             Ok(Some(latest))
