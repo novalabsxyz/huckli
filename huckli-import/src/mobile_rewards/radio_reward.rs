@@ -40,7 +40,7 @@ impl super::ToMobileReward for poc_mobile::RadioRewardV2 {
 }
 
 impl Rewards {
-    pub fn create_tables(db: &huckli_db::Db) -> anyhow::Result<()> {
+    pub fn create_tables(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
         RadioReward::create_table(db)?;
         LocationTrustScore::create_table(db)?;
         Speedtest::create_table(db)?;
@@ -49,7 +49,7 @@ impl Rewards {
         Ok(())
     }
 
-    pub fn save(db: &huckli_db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
+    pub fn save(db: &huckli_db::Db, rewards: Vec<Rewards>) -> Result<(), huckli_db::DbError> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
         let mut speedtests = Vec::new();

@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+thiserror.workspace = true
 bs58.workspace = true
 chrono.workspace = true
 clap.workspace = true

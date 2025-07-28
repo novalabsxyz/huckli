@@ -11,14 +11,16 @@ pub struct CoverageObjectProto {
 }
 
 impl crate::DbTable for CoverageObjectProto {
-    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
+    type Item = Self;
+    
+    fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
         CoverageObject::create_table(db)?;
         CoverageLocation::create_table(db)?;
 
         Ok(())
     }
 
-    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+    fn save(db: &huckli_db::Db, data: Vec<Self>) -> Result<(), huckli_db::DbError> {
         let mut objects = Vec::new();
         let mut locations = Vec::new();
 
@@ -39,7 +41,7 @@ impl CoverageObjectProto {
         db: &huckli_db::Db,
         s3: &huckli_s3::S3,
         time: &crate::TimeArgs,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), crate::ImportError> {
         crate::get_and_persist::<CoverageObjectV1, CoverageObjectProto>(
             db,
             s3,

@@ -8,6 +8,7 @@ resolver = "3"
 
 [workspace.dependencies]
 anyhow = "1"
+thiserror = "1"
 bs58 = { version = "0", features = ["check"] }
 bytes = "1"
 chrono = "0"

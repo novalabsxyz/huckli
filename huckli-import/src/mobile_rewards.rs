@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use helium_proto::{RewardManifest, services::poc_mobile};
+use huckli_s3::FileInfo;
 use huckli_import_derive::Import;
 use uuid::Uuid;
 
@@ -49,7 +50,8 @@ impl From<poc_mobile::MobileRewardShare> for MobileReward {
 }
 
 impl crate::DbTable for MobileReward {
-    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
+    type Item = Self;
+    fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
         GatewayReward::create_table(db)?;
         SubscriberReward::create_table(db)?;
         ServiceProviderReward::create_table(db)?;
@@ -61,7 +63,7 @@ impl crate::DbTable for MobileReward {
         Ok(())
     }
 
-    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+    fn save(db: &huckli_db::Db, data: Vec<Self>) -> Result<(), huckli_db::DbError> {
         let mut gateway_rewards = Vec::new();
         let mut subscriber_rewards = Vec::new();
         let mut provider_rewards = Vec::new();
@@ -105,18 +107,35 @@ impl crate::DbTable for MobileReward {
     }
 }
 
+const BUCKET: &str = "helium-mainnet-mobile-verified";
+const PREFIX: &str = "mobile_network_reward_shares_v1";
+
 impl MobileReward {
     pub async fn get_and_persist(
         db: &huckli_db::Db,
         s3: &huckli_s3::S3,
         time: &crate::TimeArgs,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), crate::ImportError> {
         crate::get_and_persist::<poc_mobile::MobileRewardShare, MobileReward>(
             db,
             s3,
-            "helium-mainnet-mobile-verified",
-            "mobile_network_reward_shares_v1",
+            BUCKET,
+            PREFIX,
             time,
+        )
+        .await
+    }
+
+    pub async fn get_and_persist_from_files(
+        db: &huckli_db::Db,
+        s3: &huckli_s3::S3,
+        file_infos: &[FileInfo],
+    ) -> Result<(), crate::ImportError> {
+        crate::get_and_persist_files::<poc_mobile::MobileRewardShare, MobileReward>(
+            db,
+            s3,
+            BUCKET,
+            file_infos,
         )
         .await
     }
@@ -255,9 +274,10 @@ impl ToMobileReward for poc_mobile::GatewayReward {
     }
 }
 
+
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = RewardManifest,
+    proto = "RewardManifest",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "network_reward_manifest_v1",
 ))]

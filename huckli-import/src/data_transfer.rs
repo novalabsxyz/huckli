@@ -9,7 +9,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = DataTransferSessionIngestReportV1,
+    proto = "DataTransferSessionIngestReportV1",
     bucket = "helium-mainnet-mobile-ingest",
     prefix = "data_transfer_session_ingest_report",
 ))]
@@ -51,7 +51,7 @@ impl From<DataTransferSessionIngestReportV1> for DataTransferIngestReport {
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedDataTransferIngestReportV1,
+    proto = "VerifiedDataTransferIngestReportV1",
     bucket = "helium-mainnet-mobile-packet-verifier",
     prefix = "verified_data_transfer_session",
 ))]
@@ -99,7 +99,7 @@ impl From<VerifiedDataTransferIngestReportV1> for VerifiedDataTransferIngestRepo
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = ValidDataTransferSession,
+    proto = "ValidDataTransferSession",
     bucket = "helium-mainnet-mobile-packet-verifier",
     prefix = "valid_data_transfer_session",
 ))]

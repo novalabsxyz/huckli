@@ -1,9 +1,41 @@
 use std::str::FromStr;
 
-use aws_sdk_s3::Client;
+use aws_sdk_s3::{Client, error::SdkError};
 use chrono::{DateTime, TimeZone, Utc};
 use futures::{Stream, StreamExt, TryStream, TryStreamExt};
 use regex::Regex;
+
+#[derive(Debug, thiserror::Error)]
+pub enum S3Error {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Decode error: {0}")]
+    Decode(S3DecodeError),
+    #[error("RPC error: {0}")]
+    Rpc(Box<dyn std::error::Error + Send + Sync>),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum S3DecodeError {
+    #[error("Failed to decode file info: {0}")]
+    FileInfo(String),
+    #[error("Failed to decode timestamp: {0}")]
+    Timestamp(String),
+}
+
+impl<E, R> From<SdkError<E, R>> for S3Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+    R: std::fmt::Debug + Send + Sync + 'static,
+{
+    fn from(value: SdkError<E, R>) -> Self {
+        match value.into_source() {
+            Ok(e) => S3Error::Rpc(e),
+            Err(e) => S3Error::Rpc(e.into()),
+        }
+    }
+
+}
 
 #[derive(Debug, Clone)]
 pub struct FileInfo {
@@ -17,15 +49,18 @@ lazy_static::lazy_static! {
 }
 
 impl FromStr for FileInfo {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> anyhow::Result<Self> {
+    type Err = S3Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let key = s.to_string();
         let cap = RE
             .captures(s)
-            .ok_or_else(|| anyhow::anyhow!("failed to decode file info"))?;
+            .ok_or_else(|| S3Error::Decode(S3DecodeError::FileInfo(s.to_string())))?;
         let prefix = cap[1].to_owned();
         let timestamp = Utc
-            .timestamp_millis_opt(i64::from_str(&cap[2])?)
+            .timestamp_millis_opt(
+                i64::from_str(&cap[2])
+                    .map_err(|_| S3Error::Decode(S3DecodeError::Timestamp(s.to_string())))?,
+            )
             .single()
             .unwrap();
         Ok(Self {
@@ -36,7 +71,7 @@ impl FromStr for FileInfo {
     }
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Default)]
 pub struct S3Args {
     #[arg(short, long)]
     prefix: Option<String>,
@@ -81,7 +116,7 @@ impl S3 {
         prefix: &str,
         after: A,
         before: B,
-    ) -> anyhow::Result<Vec<FileInfo>>
+    ) -> Result<Vec<FileInfo>, S3Error>
     where
         A: Into<Option<DateTime<Utc>>>,
         B: Into<Option<DateTime<Utc>>>,
@@ -117,7 +152,7 @@ impl S3 {
                 }
             },
         )
-        .err_into::<anyhow::Error>()
+        .map_err(S3Error::from)
         .try_filter_map(|output| async move {
             match output.contents {
                 Some(objs) => {
@@ -164,7 +199,7 @@ impl S3 {
 
 fn stream_source(
     stream: aws_sdk_s3::primitives::ByteStream,
-) -> impl TryStream<Ok = bytes::BytesMut, Error = anyhow::Error> {
+) -> impl TryStream<Ok = bytes::BytesMut, Error = S3Error> {
     use async_compression::tokio::bufread::GzipDecoder;
     use tokio_util::codec::{FramedRead, length_delimited::LengthDelimitedCodec};
 
@@ -173,7 +208,7 @@ fn stream_source(
             GzipDecoder::new(stream.into_async_read()),
             LengthDelimitedCodec::new(),
         )
-        .map_err(anyhow::Error::from),
+        .map_err(S3Error::from),
     )
 }
 
@@ -181,7 +216,7 @@ async fn get_bytes_stream(
     client: &aws_sdk_s3::Client,
     bucket: &str,
     info: &FileInfo,
-) -> anyhow::Result<aws_sdk_s3::primitives::ByteStream> {
+) -> Result<aws_sdk_s3::primitives::ByteStream, S3Error> {
     client
         .get_object()
         .bucket(bucket)
@@ -189,5 +224,5 @@ async fn get_bytes_stream(
         .send()
         .await
         .map(|o| o.body)
-        .map_err(anyhow::Error::from)
+        .map_err(S3Error::from)
 }

@@ -9,7 +9,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedServiceProviderBoostedRewardsBannedRadioIngestReportV1,
+    proto = "VerifiedServiceProviderBoostedRewardsBannedRadioIngestReportV1",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_service_provider_boosted_rewards_banned_radio",
 ))]

@@ -1,4 +1,5 @@
 use clap::Parser;
+use futures::TryFutureExt;
 use huckli_import::{SupportedFileTypes, TimeArgs};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -27,5 +28,5 @@ async fn main() -> anyhow::Result<()> {
     let db = huckli_db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
 
-    huckli_import::run(args.file_type, &db, &s3, &args.time).await
+    huckli_import::run(args.file_type, &db, &s3, &args.time).err_into().await
 }

@@ -8,19 +8,34 @@ pub mod subscribers;
 pub mod unique_connections;
 pub mod usage;
 
-use std::str::FromStr;
+pub use duckdb;
+pub use huckli_db as db;
+pub use huckli_s3 as s3;
 
-use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
+use s3::FileInfo;
+use std::str::FromStr;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ImportError {
+    #[error("Database error: {0}")]
+    Db(#[from] huckli_db::DbError),
+    #[error("S3 error: {0}")]
+    S3(#[from] huckli_s3::S3Error),
+    #[error("Invalid options, cannot specify both 'continue' and 'after'")]
+    TimeArgs,
+    #[error("Decimal: {0}")]
+    Decimal(#[from] rust_decimal::Error),
+}
 
 pub async fn run(
     file_type: SupportedFileTypes,
     db: &huckli_db::Db,
     s3: &huckli_s3::S3,
     time: &crate::TimeArgs,
-) -> anyhow::Result<()> {
+) -> Result<(), ImportError> {
     match file_type {
         SupportedFileTypes::CoverageObject => {
             coverage::CoverageObjectProto::get_and_persist(db, s3, time).await?;
@@ -126,9 +141,10 @@ pub fn determine_timestamp(timestamp: u64) -> DateTime<Utc> {
 }
 
 pub trait DbTable: Sized {
-    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()>;
+    type Item;
 
-    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()>;
+    fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError>;
+    fn save(db: &huckli_db::Db, data: Vec<Self::Item>) -> Result<(), huckli_db::DbError>;
 }
 
 pub async fn get_and_persist<F, T>(
@@ -137,10 +153,10 @@ pub async fn get_and_persist<F, T>(
     bucket: &str,
     prefix: &str,
     time: &TimeArgs,
-) -> anyhow::Result<()>
+) -> Result<(), ImportError>
 where
     F: prost::Message + Default,
-    T: From<F> + DbTable,
+    T: From<F> + DbTable<Item = T>,
 {
     T::create_table(db)?;
 
@@ -153,8 +169,28 @@ where
         )
         .await?;
 
-    let mut stream = futures::stream::iter(files)
-        .map(|file| async { (file.clone(), get_and_decode::<F, T>(s3, bucket, file).await) })
+    get_and_persist_files::<F, T>(db, s3, bucket, &files).await?;
+
+    Ok(())
+}
+
+pub async fn get_and_persist_files<F, T>(
+    db: &huckli_db::Db,
+    s3: &huckli_s3::S3,
+    bucket: &str,
+    file_infos: &[FileInfo],
+) -> Result<(), ImportError>
+where
+    F: prost::Message + Default,
+    T: From<F> + DbTable<Item = T>,
+{
+    let mut stream = futures::stream::iter(file_infos)
+        .map(|file_info| async {
+            (
+                file_info.clone(),
+                get_and_decode::<F, T>(s3, bucket, file_info.clone()).await,
+            )
+        })
         .buffered(10);
 
     while let Some((file, data)) = stream.next().await {
@@ -166,7 +202,11 @@ where
     Ok(())
 }
 
-pub async fn get_and_decode<F, T>(s3: &huckli_s3::S3, bucket: &str, file: huckli_s3::FileInfo) -> Vec<T>
+pub async fn get_and_decode<F, T>(
+    s3: &huckli_s3::S3,
+    bucket: &str,
+    file: huckli_s3::FileInfo,
+) -> Vec<T>
 where
     F: prost::Message + Default,
     T: From<F>,
@@ -187,30 +227,34 @@ where
         .await
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, clap::Args, Default)]
 pub struct TimeArgs {
     #[arg(long)]
-    after: Option<NaiveDateTime>,
+    pub after: Option<NaiveDateTime>,
     #[arg(long)]
-    before: Option<NaiveDateTime>,
+    pub before: Option<NaiveDateTime>,
     #[arg(long, default_value_t = false)]
-    r#continue: bool,
+    pub r#continue: bool,
 }
 
 impl TimeArgs {
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub fn validate(&self) -> Result<(), ImportError> {
         if self.r#continue && self.after.is_some() {
-            anyhow::bail!("Invalid options, cannot specify both 'continue' and 'after'");
+            return Err(ImportError::TimeArgs);
         }
 
         Ok(())
     }
 
-    pub fn after_utc(&self, db: &huckli_db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+    pub fn after_utc(
+        &self,
+        db: &huckli_db::Db,
+        prefix: &str,
+    ) -> Result<Option<DateTime<Utc>>, ImportError> {
         if self.r#continue {
             let latest = db
                 .latest_file_processed_timestamp(prefix)
-                .context("Cannot conitnue, no previously processed files")?;
+                .map_err(ImportError::from)?;
 
             Ok(Some(latest))
         } else {
@@ -224,8 +268,9 @@ impl TimeArgs {
 }
 
 fn from_proto_decimal(opt: Option<&helium_proto::Decimal>) -> f64 {
-    opt.ok_or_else(|| anyhow::anyhow!("decimal not present"))
-        .and_then(|d| Decimal::from_str(&d.value).map_err(anyhow::Error::from))
+    opt.ok_or_else(|| rust_decimal::Error::ErrorString("decimal not present".to_string()))
+        .and_then(|d| Decimal::from_str(&d.value))
+        .map_err(ImportError::from)
         .unwrap_or_default()
         .try_into()
         .unwrap()

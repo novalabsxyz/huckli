@@ -77,19 +77,21 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     let persist = quote! {
         impl crate::DbTable for #name {
-            fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
+            type Item = Self;
+            
+            fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
                 db.create_table(#table_name, vec![#(#fields),*])
             }
 
-            fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+            fn save(db: &huckli_db::Db, data: Vec<Self::Item>) -> Result<(), huckli_db::DbError> {
                 db.append_to_table(#table_name, data)
             }
         }
 
         impl huckli_db::Appendable for #name {
-            fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()> {
+            fn append(&self, appender: &mut duckdb::Appender) -> Result<(), huckli_db::DbError> {
                 appender.append_row(duckdb::params![#(self.#field_names),*])
-                    .map_err(anyhow::Error::from)
+                    .map_err(huckli_db::DbError::from)
             }
         }
 
@@ -105,7 +107,7 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                     db: &huckli_db::Db,
                     s3: &huckli_s3::S3,
                     time: &crate::TimeArgs,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), crate::ImportError> {
                     crate::get_and_persist::<#proto, #name>(
                         db,
                         s3,

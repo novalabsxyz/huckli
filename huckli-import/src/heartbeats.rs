@@ -7,7 +7,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = Heartbeat,
+    proto = "Heartbeat",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "validated_heartbeat"
 ))]

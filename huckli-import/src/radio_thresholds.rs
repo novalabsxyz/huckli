@@ -8,7 +8,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedRadioThresholdIngestReportV1,
+    proto = "VerifiedRadioThresholdIngestReportV1",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_radio_threshold_report",
 ))]
@@ -52,7 +52,7 @@ impl From<VerifiedRadioThresholdIngestReportV1> for VerifiedRadioThreshold {
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedInvalidatedRadioThresholdIngestReportV1,
+    proto = "VerifiedInvalidatedRadioThresholdIngestReportV1",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_invalidated_radio_threshold_report",
 ))]
