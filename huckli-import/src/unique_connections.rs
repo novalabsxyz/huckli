@@ -1,12 +1,11 @@
+use crate::{PublicKeyBinary, determine_timestamp};
 use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::VerifiedUniqueConnectionsIngestReportV1;
 use huckli_import_derive::Import;
 
-use crate::{PublicKeyBinary, determine_timestamp};
-
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedUniqueConnectionsIngestReportV1,
+    proto = "VerifiedUniqueConnectionsIngestReportV1",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_unique_connections_report",
 ))]

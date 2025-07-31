@@ -8,6 +8,8 @@ resolver = "3"
 
 [workspace.dependencies]
 anyhow = "1"
+async-duckdb = "0.2"
+async-trait = "0.1"
 bs58 = { version = "0", features = ["check"] }
 bytes = "1"
 chrono = "0"
@@ -17,9 +19,11 @@ futures = "0"
 helium-proto = { git = "https://github.com/helium/proto", branch = "master", features = [
   "services",
 ] }
+itertools = "0.14"
 prost = "0.12"
 rust_decimal = "1"
 serde_json = "1"
+thiserror = "1"
 tokio = { version = "1", default-features = false, features = [
   "fs",
   "macros",

@@ -1,3 +1,6 @@
+// this is to work around a darling default clippy issue in the Field struct below
+#![allow(clippy::manual_unwrap_or_default)]
+
 use case::CaseExt;
 use darling::{FromDeriveInput, FromMeta};
 use proc_macro::TokenStream;
@@ -14,9 +17,14 @@ struct Field {
     skip: bool,
 }
 
+
 impl ToTokens for Field {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = self.ident.as_ref().unwrap().to_string();
+        let name = self
+            .ident
+            .as_ref()
+            .map(|i| i.to_string())
+            .unwrap_or_default();
         let sql = if let Some(t) = self.sql.as_ref() {
             quote! { Some(#t.to_string()) }
         } else {
@@ -75,21 +83,39 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
+    // Get the actual struct field types from the input
+    let original_fields = match &input.data {
+        syn::Data::Struct(data) => &data.fields,
+        _ => panic!("Import derive only supports structs"),
+    };
+    let field_types: Vec<_> = original_fields.iter().map(|f| &f.ty).collect();
+    
+    // Generate quoted string literals for column names
+    let column_names: Vec<proc_macro2::TokenStream> = field_names
+        .iter()
+        .map(|name| {
+            let name_str = name.as_ref().unwrap().to_string();
+            quote! { #name_str }
+        })
+        .collect();
+
     let persist = quote! {
+        #[async_trait::async_trait]
         impl crate::DbTable for #name {
-            fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
-                db.create_table(#table_name, vec![#(#fields),*])
+            type Item = Self;
+
+            async fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
+                db.create_table(#table_name, vec![#(#fields),*]).await
             }
 
-            fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
-                db.append_to_table(#table_name, data)
+            async fn save(db: &huckli_db::Db, data: Vec<Self::Item>) -> Result<(), huckli_db::DbError> {
+                db.append_to_table(#table_name, data).await
             }
         }
 
         impl huckli_db::Appendable for #name {
-            fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()> {
+            fn append_sync(&self, appender: &mut duckdb::Appender) -> Result<(), duckdb::Error> {
                 appender.append_row(duckdb::params![#(self.#field_names),*])
-                    .map_err(anyhow::Error::from)
             }
         }
 
@@ -105,7 +131,7 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                     db: &huckli_db::Db,
                     s3: &huckli_s3::S3,
                     time: &crate::TimeArgs,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), crate::ImportError> {
                     crate::get_and_persist::<#proto, #name>(
                         db,
                         s3,
@@ -120,9 +146,23 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let from_row = quote! {
+        impl<'stmt> ::std::convert::TryFrom<&duckdb::Row<'stmt>> for #name {
+            type Error = duckdb::Error;
+            fn try_from(row: &duckdb::Row<'stmt>) -> Result<Self, Self::Error> {
+                Ok(#name {
+                    #(
+                        #field_names: row.get::<_, #field_types>(#column_names)?
+                    ),*
+                })
+            }
+        }
+    };
+
     quote! {
         #persist
         #decode
+        #from_row
     }
     .into()
 }

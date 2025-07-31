@@ -40,16 +40,16 @@ impl super::ToMobileReward for poc_mobile::RadioRewardV2 {
 }
 
 impl Rewards {
-    pub fn create_tables(db: &huckli_db::Db) -> anyhow::Result<()> {
-        RadioReward::create_table(db)?;
-        LocationTrustScore::create_table(db)?;
-        Speedtest::create_table(db)?;
-        CoveredHex::create_table(db)?;
+    pub async fn create_tables(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
+        RadioReward::create_table(db).await?;
+        LocationTrustScore::create_table(db).await?;
+        Speedtest::create_table(db).await?;
+        CoveredHex::create_table(db).await?;
 
         Ok(())
     }
 
-    pub fn save(db: &huckli_db::Db, rewards: Vec<Rewards>) -> anyhow::Result<()> {
+    pub async fn save(db: &huckli_db::Db, rewards: Vec<Rewards>) -> Result<(), huckli_db::DbError> {
         let mut radios = Vec::new();
         let mut trust_scores = Vec::new();
         let mut speedtests = Vec::new();
@@ -62,10 +62,10 @@ impl Rewards {
             hexes.append(&mut r.covered_hexes);
         }
 
-        RadioReward::save(db, radios)?;
-        LocationTrustScore::save(db, trust_scores)?;
-        Speedtest::save(db, speedtests)?;
-        CoveredHex::save(db, hexes)?;
+        RadioReward::save(db, radios).await?;
+        LocationTrustScore::save(db, trust_scores).await?;
+        Speedtest::save(db, speedtests).await?;
+        CoveredHex::save(db, hexes).await?;
 
         Ok(())
     }

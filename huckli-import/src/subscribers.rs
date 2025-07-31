@@ -9,7 +9,7 @@ use crate::determine_timestamp;
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = SubscriberMappingActivityIngestReportV1,
+    proto = "SubscriberMappingActivityIngestReportV1",
     bucket = "helium-mainnet-mobile-ingest",
     prefix = "subscriber_mapping_activity_ingest_report",
 ))]
@@ -42,7 +42,7 @@ impl From<SubscriberMappingActivityIngestReportV1> for SubscriberMappingActivity
 
 #[derive(Debug, Import)]
 #[import(s3decode(
-    proto = VerifiedSubscriberMappingActivityReportV1,
+    proto = "VerifiedSubscriberMappingActivityReportV1",
     bucket = "helium-mainnet-mobile-verified",
     prefix = "verified_subscriber_mapping_activity_report",
 ))]

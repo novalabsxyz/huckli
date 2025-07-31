@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::{CoverageObjectV1, coverage_object_req_v1};
 use huckli_import_derive::Import;
@@ -10,15 +11,18 @@ pub struct CoverageObjectProto {
     locations: Vec<CoverageLocation>,
 }
 
+#[async_trait]
 impl crate::DbTable for CoverageObjectProto {
-    fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
-        CoverageObject::create_table(db)?;
-        CoverageLocation::create_table(db)?;
+    type Item = Self;
+
+    async fn create_table(db: &huckli_db::Db) -> Result<(), huckli_db::DbError> {
+        CoverageObject::create_table(db).await?;
+        CoverageLocation::create_table(db).await?;
 
         Ok(())
     }
 
-    fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
+    async fn save(db: &huckli_db::Db, data: Vec<Self>) -> Result<(), huckli_db::DbError> {
         let mut objects = Vec::new();
         let mut locations = Vec::new();
 
@@ -27,8 +31,8 @@ impl crate::DbTable for CoverageObjectProto {
             locations.append(&mut p.locations);
         }
 
-        CoverageObject::save(db, objects)?;
-        CoverageLocation::save(db, locations)?;
+        CoverageObject::save(db, objects).await?;
+        CoverageLocation::save(db, locations).await?;
 
         Ok(())
     }
@@ -39,7 +43,7 @@ impl CoverageObjectProto {
         db: &huckli_db::Db,
         s3: &huckli_s3::S3,
         time: &crate::TimeArgs,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), crate::ImportError> {
         crate::get_and_persist::<CoverageObjectV1, CoverageObjectProto>(
             db,
             s3,

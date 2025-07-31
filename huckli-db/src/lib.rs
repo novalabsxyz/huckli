@@ -1,91 +1,154 @@
+use async_duckdb::{Client, ClientBuilder};
 use chrono::{DateTime, Utc};
+use futures::TryFutureExt;
+use itertools::Itertools;
+
+pub use async_duckdb::duckdb::AccessMode;
+pub use async_duckdb::duckdb;
+
+#[derive(Debug, thiserror::Error)]
+pub enum DbError {
+    #[error(transparent)]
+    Duckdb(#[from] async_duckdb::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
 
 pub struct Db {
-    connection: duckdb::Connection,
+    client: Client,
 }
 
 impl Db {
-    pub fn connect(file: &str) -> anyhow::Result<Self> {
-        let connection = duckdb::Connection::open(file)?;
-        connection.execute("SET TimeZone = 'UTC'", [])?;
-        Self::create_files_processed_table(&connection)?;
+    pub async fn open(file: &str, access_mode: AccessMode) -> Result<Self, DbError> {
+        let client = ClientBuilder::new().path(file).open().await?;
 
-        Ok(Self { connection })
+        client
+            .conn(|conn| {
+                conn.execute("SET TimeZone = 'UTC'", [])?;
+                Ok(())
+            })
+            .await?;
+
+        if access_mode == AccessMode::ReadWrite {
+            Self::create_files_processed_table(&client).await?;
+        }
+
+        Ok(Self { client })
     }
 
-    fn create_files_processed_table(connection: &duckdb::Connection) -> anyhow::Result<()> {
-        connection.execute(
-            r#"
-                CREATE TABLE IF NOT EXISTS files_processed (
-                    file_name TEXT NOT NULL,
-                    prefix TEXT NOT NULL,
-                    file_timestamp timestamptz NOT NULL,
-                    processed_at timestamptz NOT NULL
+    pub async fn execute(&self, query: &str) -> Result<usize, DbError> {
+        let query = query.to_string();
+        self.client
+            .conn(move |conn| conn.execute(&query, []))
+            .map_err(DbError::from)
+            .await
+    }
+
+    pub async fn conn<F, T>(&self, func: F) -> Result<T, DbError>
+    where
+        F: FnOnce(&duckdb::Connection) -> Result<T, duckdb::Error> + Send + 'static,
+        T: Send + 'static,
+    {
+        self.client.conn(func).await.map_err(DbError::from)
+    }
+
+
+    async fn create_files_processed_table(client: &Client) -> Result<(), DbError> {
+        client
+            .conn(|conn| {
+                conn.execute(
+                    r#"
+                    CREATE TABLE IF NOT EXISTS files_processed (
+                        file_name TEXT NOT NULL,
+                        prefix TEXT NOT NULL,
+                        file_timestamp timestamptz NOT NULL,
+                        processed_at timestamptz NOT NULL
+                    )
+                "#,
+                    [],
                 )
-            "#,
-            [],
-        )?;
+            })
+            .await?;
 
         Ok(())
     }
 
-    pub fn save_file_processed(
+    pub async fn save_file_processed(
         &self,
         name: &str,
         prefix: &str,
         timestamp: DateTime<Utc>,
-    ) -> anyhow::Result<()> {
-        self.connection.execute("INSERT INTO files_processed(file_name, prefix, file_timestamp, processed_at) VALUES(?, ?, ? ,?)", duckdb::params![name, prefix, timestamp, Utc::now()])?;
+    ) -> Result<(), DbError> {
+        let name = name.to_string();
+        let prefix = prefix.to_string();
+        let now = Utc::now();
+
+        self.client.conn(move |conn| {
+            conn.execute(
+                "INSERT INTO files_processed(file_name, prefix, file_timestamp, processed_at) VALUES(?, ?, ? ,?)",
+                duckdb::params![name, prefix, timestamp, now],
+            )
+        }).await?;
 
         Ok(())
     }
 
-    pub fn latest_file_processed_timestamp(&self, prefix: &str) -> anyhow::Result<DateTime<Utc>> {
-        self.connection
-            .prepare(
-                r#"
+    pub async fn latest_file_processed_timestamp(
+        &self,
+        prefix: &str,
+    ) -> Result<DateTime<Utc>, DbError> {
+        let prefix = prefix.to_string();
+        self.client
+            .conn(move |conn| {
+                let mut stmt = conn.prepare(
+                    r#"
                     SELECT file_timestamp
                     FROM files_processed
                     WHERE prefix = ?
                     ORDER BY file_timestamp DESC
                     LIMIT 1
                 "#,
-            )?
-            .query_row([prefix], |r| r.get(0))
-            .map_err(anyhow::Error::from)
+                )?;
+
+                let row = stmt.query_row([prefix], |r| r.get(0))?;
+                Ok(row)
+            })
+            .map_err(DbError::from)
+            .await
     }
 
-    pub fn create_table(&self, name: &str, fields: Vec<TableField>) -> anyhow::Result<()> {
+    pub async fn create_table(&self, name: &str, fields: Vec<TableField>) -> Result<(), DbError> {
         let statement = format!(
             "CREATE TABLE IF NOT EXISTS {} ({})",
             name,
-            fields
-                .iter()
-                .map(|f| f.to_sql())
-                .collect::<Vec<_>>()
-                .join(","),
+            fields.iter().map(|f| f.to_sql()).join(","),
         );
 
-        self.connection.execute(&statement, [])?;
+        self.execute(&statement).await?;
 
         Ok(())
     }
 
-    pub fn append_to_table<A>(&self, table: &str, data: Vec<A>) -> anyhow::Result<()>
+    pub async fn append_to_table<A>(&self, table: &str, data: Vec<A>) -> Result<(), DbError>
     where
-        A: Appendable,
+        A: Appendable + Send + 'static,
     {
-        let mut appender = self.connection.appender(table)?;
-        for entry in data {
-            entry.append(&mut appender)?;
-        }
-
-        Ok(())
+        let table = table.to_string();
+        self.client
+            .conn_mut(move |conn| {
+                let mut appender = conn.appender(&table)?;
+                for entry in data {
+                    entry.append_sync(&mut appender)?;
+                }
+                Ok(())
+            })
+            .map_err(DbError::from)
+            .await
     }
 }
 
 pub trait Appendable {
-    fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()>;
+    fn append_sync(&self, appender: &mut duckdb::Appender) -> Result<(), duckdb::Error>;
 }
 
 pub struct TableField {
@@ -104,7 +167,7 @@ impl TableField {
     }
 
     fn to_sql(&self) -> String {
-        let nullable = if self.nullable.unwrap_or(false) {
+        let nullable = if self.nullable.unwrap_or_default() {
             "NULL"
         } else {
             "NOT NULL"
