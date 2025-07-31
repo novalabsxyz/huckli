@@ -3,6 +3,9 @@ use chrono::{DateTime, Utc};
 use futures::TryFutureExt;
 use itertools::Itertools;
 
+pub use async_duckdb::duckdb::AccessMode;
+pub use async_duckdb::duckdb;
+
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
     #[error(transparent)]
@@ -16,7 +19,7 @@ pub struct Db {
 }
 
 impl Db {
-    pub async fn connect(file: &str) -> Result<Self, DbError> {
+    pub async fn open(file: &str, access_mode: AccessMode) -> Result<Self, DbError> {
         let client = ClientBuilder::new().path(file).open().await?;
 
         client
@@ -26,7 +29,9 @@ impl Db {
             })
             .await?;
 
-        Self::create_files_processed_table(&client).await?;
+        if access_mode == AccessMode::ReadWrite {
+            Self::create_files_processed_table(&client).await?;
+        }
 
         Ok(Self { client })
     }
@@ -38,6 +43,15 @@ impl Db {
             .map_err(DbError::from)
             .await
     }
+
+    pub async fn conn<F, T>(&self, func: F) -> Result<T, DbError>
+    where
+        F: FnOnce(&duckdb::Connection) -> Result<T, duckdb::Error> + Send + 'static,
+        T: Send + 'static,
+    {
+        self.client.conn(func).await.map_err(DbError::from)
+    }
+
 
     async fn create_files_processed_table(client: &Client) -> Result<(), DbError> {
         client

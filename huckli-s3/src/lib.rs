@@ -70,16 +70,27 @@ impl FromStr for FileInfo {
     }
 }
 
-#[derive(Debug, clap::Args, Default)]
+#[derive(Debug, clap::Args)]
 pub struct S3Args {
     #[arg(short, long)]
-    prefix: Option<String>,
+    pub prefix: Option<String>,
     #[arg(short, long)]
-    bucket: Option<String>,
+    pub bucket: Option<String>,
     #[arg(short, long, default_value = "us-west-2")]
-    region: String,
+    pub region: String,
     #[arg(short, long)]
-    endpoint: Option<String>,
+    pub endpoint: Option<String>,
+}
+
+impl Default for S3Args {
+    fn default() -> Self {
+        Self {
+            prefix: None,
+            bucket: None,
+            region: "us-west-2".to_string(),
+            endpoint: None,
+        }
+    }
 }
 
 impl S3Args {
@@ -104,8 +115,8 @@ impl S3Args {
 
 pub struct S3 {
     client: aws_sdk_s3::Client,
-    bucket: Option<String>,
-    prefix: Option<String>,
+    pub bucket: Option<String>,
+    pub prefix: Option<String>,
 }
 
 impl S3 {

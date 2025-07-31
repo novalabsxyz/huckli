@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db = huckli_db::Db::connect(&args.db).await?;
+    let db = huckli_db::Db::open(&args.db, huckli_db::AccessMode::ReadWrite).await?;
     let s3 = args.s3.connect().await;
 
     huckli_import::run(args.file_type, &db, &s3, &args.time)

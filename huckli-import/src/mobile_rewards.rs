@@ -109,8 +109,8 @@ impl crate::DbTable for MobileReward {
     }
 }
 
-const BUCKET: &str = "helium-mainnet-mobile-verified";
-const PREFIX: &str = "mobile_network_reward_shares_v1";
+pub const MAINNET_BUCKET: &str = "helium-mainnet-mobile-verified";
+pub const MOBILE_REWARD_SHARE_PREFIX: &str = "mobile_network_reward_shares_v1";
 
 impl MobileReward {
     pub async fn get_and_persist(
@@ -119,7 +119,7 @@ impl MobileReward {
         time: &crate::TimeArgs,
     ) -> Result<(), crate::ImportError> {
         crate::get_and_persist::<poc_mobile::MobileRewardShare, MobileReward>(
-            db, s3, BUCKET, PREFIX, time,
+            db, s3, MAINNET_BUCKET, MOBILE_REWARD_SHARE_PREFIX, time,
         )
         .await
     }
@@ -130,7 +130,25 @@ impl MobileReward {
         file_infos: &[FileInfo],
     ) -> Result<(), crate::ImportError> {
         crate::get_and_persist_files::<poc_mobile::MobileRewardShare, MobileReward>(
-            db, s3, BUCKET, file_infos,
+            db, s3, MAINNET_BUCKET, file_infos,
+        )
+        .await
+    }
+
+    pub async fn get_and_persist_from_files_using<'a, S>(
+        db: &'a huckli_db::Db,
+        s3: &huckli_s3::S3,
+        file_infos: &[FileInfo],
+        saver: S,
+    ) -> Result<(), crate::ImportError>
+    where
+        S: Fn(
+            &'a huckli_db::Db,
+            Vec<MobileReward>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), huckli_db::DbError>> + Send + 'a>>,
+    {
+        crate::get_and_persist_files_using::<poc_mobile::MobileRewardShare, MobileReward, _>(
+            db, s3, MAINNET_BUCKET, file_infos, saver
         )
         .await
     }
@@ -244,16 +262,16 @@ impl ToMobileReward for poc_mobile::SubscriberReward {
 #[import(table_name = "mobile_gateway_rewards")]
 pub struct GatewayReward {
     #[import(sql = "timestamptz")]
-    start_period: DateTime<Utc>,
+    pub start_period: DateTime<Utc>,
     #[import(sql = "timestamptz")]
-    end_period: DateTime<Utc>,
-    hotspot_key: String,
+    pub end_period: DateTime<Utc>,
+    pub hotspot_key: String,
     #[import(sql = "bigint")]
-    dc_transfer_reward: u64,
+    pub dc_transfer_reward: u64,
     #[import(sql = "bigint")]
-    rewardable_bytes: u64,
+    pub rewardable_bytes: u64,
     #[import(sql = "bigint")]
-    price: u64,
+    pub price: u64,
 }
 
 impl ToMobileReward for poc_mobile::GatewayReward {
@@ -268,6 +286,8 @@ impl ToMobileReward for poc_mobile::GatewayReward {
         })
     }
 }
+
+pub const MOBILE_REWARD_MANIFEST_PREFIX: &str = "network_reward_manifest_v1";
 
 #[derive(Debug, Import)]
 #[import(s3decode(

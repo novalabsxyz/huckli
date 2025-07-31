@@ -9,14 +9,14 @@ pub mod unique_connections;
 pub mod usage;
 
 pub use async_duckdb;
-pub use huckli_db as db;
-pub use huckli_s3 as s3;
+pub use huckli_db;
+pub use huckli_import_derive;
+pub use huckli_s3;
 
-use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use futures::{StreamExt, TryFutureExt, TryStreamExt};
+use huckli_s3::FileInfo;
 use rust_decimal::Decimal;
-use s3::FileInfo;
 use std::str::FromStr;
 
 #[derive(Debug, thiserror::Error)]
@@ -141,7 +141,7 @@ pub fn determine_timestamp(timestamp: u64) -> DateTime<Utc> {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 pub trait DbTable: Sized {
     type Item;
 
@@ -186,21 +186,44 @@ where
     F: prost::Message + Default,
     T: From<F> + DbTable<Item = T>,
 {
-    let mut stream = futures::stream::iter(file_infos)
-        .map(|file_info| async {
-            (
-                file_info.clone(),
-                get_and_decode::<F, T>(s3, bucket, file_info.clone()).await,
-            )
-        })
-        .buffered(10);
+    get_and_persist_files_using(db, s3, bucket, file_infos, |db, data| {
+        T::save(db, data)
+    })
+    .await?;
+    Ok(())
+}
 
-    while let Some((file, data)) = stream.next().await {
-        tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
-        T::save(db, data).await?;
-        db.save_file_processed(&file.key, &file.prefix, file.timestamp)
-            .await?;
-    }
+pub async fn get_and_persist_files_using<'a, F, T, S>(
+    db: &'a huckli_db::Db,
+    s3: &huckli_s3::S3,
+    bucket: &str,
+    file_infos: &[FileInfo],
+    saver: S,
+) -> Result<(), ImportError>
+where
+    S: Fn(
+        &'a huckli_db::Db,
+        Vec<T>,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<(), huckli_db::DbError>> + Send + 'a>,
+    >,
+    F: prost::Message + Default,
+    T: From<F> + DbTable<Item = T>,
+{
+    futures::stream::iter(file_infos)
+        .map(|file_info| Ok::<_, ImportError>(file_info.clone()))
+        .map_ok(|file_info| async {
+            let data = get_and_decode::<F, T>(s3, bucket, file_info.clone()).await;
+            tracing::info!(file = %file_info.key, timestamp = %file_info.timestamp, "processing");
+            saver(db, data).await?;
+            db.save_file_processed(&file_info.key, &file_info.prefix, file_info.timestamp)
+                .map_err(ImportError::from)
+                .await?;
+            Ok(file_info)
+        })
+        .try_buffered(10)
+        .try_collect::<Vec<_>>()
+        .await?;
 
     Ok(())
 }

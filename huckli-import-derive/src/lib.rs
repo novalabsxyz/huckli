@@ -1,3 +1,6 @@
+// this is to work around a darling default clippy issue in the Field struct below
+#![allow(clippy::manual_unwrap_or_default)]
+
 use case::CaseExt;
 use darling::{FromDeriveInput, FromMeta};
 use proc_macro::TokenStream;
@@ -10,10 +13,10 @@ struct Field {
     ident: Option<syn::Ident>,
     sql: Option<String>,
     nullable: Option<bool>,
-    #[allow(clippy::manual_unwrap_or_default)]
     #[darling(default)]
     skip: bool,
 }
+
 
 impl ToTokens for Field {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
@@ -80,6 +83,22 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
     let field_names = fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
+    // Get the actual struct field types from the input
+    let original_fields = match &input.data {
+        syn::Data::Struct(data) => &data.fields,
+        _ => panic!("Import derive only supports structs"),
+    };
+    let field_types: Vec<_> = original_fields.iter().map(|f| &f.ty).collect();
+    
+    // Generate quoted string literals for column names
+    let column_names: Vec<proc_macro2::TokenStream> = field_names
+        .iter()
+        .map(|name| {
+            let name_str = name.as_ref().unwrap().to_string();
+            quote! { #name_str }
+        })
+        .collect();
+
     let persist = quote! {
         #[async_trait::async_trait]
         impl crate::DbTable for #name {
@@ -127,9 +146,23 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let from_row = quote! {
+        impl<'stmt> ::std::convert::TryFrom<&duckdb::Row<'stmt>> for #name {
+            type Error = duckdb::Error;
+            fn try_from(row: &duckdb::Row<'stmt>) -> Result<Self, Self::Error> {
+                Ok(#name {
+                    #(
+                        #field_names: row.get::<_, #field_types>(#column_names)?
+                    ),*
+                })
+            }
+        }
+    };
+
     quote! {
         #persist
         #decode
+        #from_row
     }
     .into()
 }
