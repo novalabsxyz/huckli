@@ -1,6 +1,7 @@
 pub mod coverage;
 pub mod data_transfer;
 pub mod heartbeats;
+pub mod iot_rewards;
 pub mod mobile_rewards;
 pub mod radio_thresholds;
 pub mod sp_banned_radio;
@@ -30,6 +31,9 @@ pub async fn run(
         }
         SupportedFileTypes::DataTransferIngest => {
             data_transfer::DataTransferIngestReport::get_and_persist(db, s3, time).await?;
+        }
+        SupportedFileTypes::IotRewards => {
+            iot_rewards::IotReward::get_and_persist(db, s3, time).await?;
         }
         SupportedFileTypes::MobileRewards => {
             mobile_rewards::MobileReward::get_and_persist(db, s3, time).await?;
@@ -74,6 +78,7 @@ pub enum SupportedFileTypes {
     CoverageObject,
     DataTransferBurn,
     DataTransferIngest,
+    IotRewards,
     MobileRewards,
     MobileRewardManifest,
     RadioUsageStats,
@@ -166,7 +171,11 @@ where
     Ok(())
 }
 
-pub async fn get_and_decode<F, T>(s3: &huckli_s3::S3, bucket: &str, file: huckli_s3::FileInfo) -> Vec<T>
+pub async fn get_and_decode<F, T>(
+    s3: &huckli_s3::S3,
+    bucket: &str,
+    file: huckli_s3::FileInfo,
+) -> Vec<T>
 where
     F: prost::Message + Default,
     T: From<F>,
@@ -206,7 +215,11 @@ impl TimeArgs {
         Ok(())
     }
 
-    pub fn after_utc(&self, db: &huckli_db::Db, prefix: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+    pub fn after_utc(
+        &self,
+        db: &huckli_db::Db,
+        prefix: &str,
+    ) -> anyhow::Result<Option<DateTime<Utc>>> {
         if self.r#continue {
             let latest = db
                 .latest_file_processed_timestamp(prefix)
