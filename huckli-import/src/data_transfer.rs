@@ -28,6 +28,7 @@ pub struct DataTransferIngestReport {
     timestamp: DateTime<Utc>,
     #[import(sql = "timestamptz")]
     received_timestamp: DateTime<Utc>,
+    carrier_id: String,
 }
 
 impl From<DataTransferSessionIngestReportV1> for DataTransferIngestReport {
@@ -45,6 +46,7 @@ impl From<DataTransferSessionIngestReportV1> for DataTransferIngestReport {
             payer: PublicKeyBinary::from(event.payer.clone()).to_string(),
             timestamp: determine_timestamp(event.timestamp),
             received_timestamp: determine_timestamp(ingest.received_timestamp),
+            carrier_id: req.carrier_id_v2().as_str_name().to_string(),
         }
     }
 }
