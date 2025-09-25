@@ -1,3 +1,4 @@
+pub mod boosting;
 pub mod coverage;
 pub mod data_transfer;
 pub mod heartbeats;
@@ -8,6 +9,7 @@ pub mod sp_banned_radio;
 pub mod subscribers;
 pub mod unique_connections;
 pub mod usage;
+pub mod verified_speedtest;
 
 use std::str::FromStr;
 
@@ -23,6 +25,9 @@ pub async fn run(
     time: &crate::TimeArgs,
 ) -> anyhow::Result<()> {
     match file_type {
+        SupportedFileTypes::BoostedHexUpdate => {
+            boosting::BoostedHexUpdate::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::CoverageObject => {
             coverage::CoverageObjectProto::get_and_persist(db, s3, time).await?;
         }
@@ -50,6 +55,9 @@ pub async fn run(
         SupportedFileTypes::ValidatedHeartbeat => {
             heartbeats::VerifiedWifiHeartbeat::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::WifiHeartbeatIngest => {
+            heartbeats::WifiHeartbeatIngestReport::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::VerifiedCdrVerification => {
             sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, time).await?;
         }
@@ -66,6 +74,9 @@ pub async fn run(
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
             subscribers::VerifiedSubscriberMappingActivity::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::VerifiedSpeedtest => {
+            verified_speedtest::VerifiedSpeedtestReport::get_and_persist(db, s3, time).await?;
+        }
         SupportedFileTypes::VerifiedUniqueConnections => {
             unique_connections::VerifiedUniqueConnections::get_and_persist(db, s3, time).await?;
         }
@@ -75,6 +86,7 @@ pub async fn run(
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum SupportedFileTypes {
+    BoostedHexUpdate,
     CoverageObject,
     DataTransferBurn,
     DataTransferIngest,
@@ -86,9 +98,11 @@ pub enum SupportedFileTypes {
     ValidatedHeartbeat,
     VerifiedCdrVerification,
     VerifiedDataTransfer,
+    WifiHeartbeatIngest,
     VerifiedInvalidatedRadioThreshold,
     VerifiedSubscriberMappingActivity,
     VerifiedRadioThreshold,
+    VerifiedSpeedtest,
     VerifiedUniqueConnections,
 }
 
