@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use helium_proto::services::poc_mobile::Heartbeat;
+use helium_proto::services::poc_mobile::{Heartbeat, WifiHeartbeatIngestReportV1};
 use huckli_import_derive::Import;
 use uuid::Uuid;
 
@@ -45,6 +45,53 @@ impl From<Heartbeat> for VerifiedWifiHeartbeat {
             distance_to_asserted: value.distance_to_asserted,
             location_trust_score_multiplier: value.location_trust_score_multiplier,
             location_source: value.location_source().as_str_name().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Import)]
+#[import(s3decode(
+    proto = WifiHeartbeatIngestReportV1,
+    bucket = "helium-mainnet-mobile-ingest",
+    prefix = "wifi_heartbeat_report"
+))]
+pub struct WifiHeartbeatIngestReport {
+    hotspot_key: String,
+    #[import(sql = "timestamptz")]
+    timestamp: DateTime<Utc>,
+    #[import(sql = "double")]
+    lat: f64,
+    #[import(sql = "double")]
+    lon: f64,
+    coverage_object: String,
+    #[import(sql = "timestamptz")]
+    received_timestamp: DateTime<Utc>,
+    #[import(sql = "bool")]
+    operation_mode: bool,
+    #[import(sql = "timestamptz")]
+    location_validation_timestamp: DateTime<Utc>,
+    location_source: String,
+}
+
+impl From<WifiHeartbeatIngestReportV1> for WifiHeartbeatIngestReport {
+    fn from(value: WifiHeartbeatIngestReportV1) -> Self {
+        let report = value
+            .report
+            .expect("WifiHeartbeatIngestReportV1 should have a report");
+        Self {
+            hotspot_key: PublicKeyBinary::from(report.pub_key.clone()).to_string(),
+            timestamp: determine_timestamp(report.timestamp),
+            lat: report.lat,
+            lon: report.lon,
+            coverage_object: Uuid::from_slice(&report.coverage_object)
+                .unwrap()
+                .to_string(),
+            received_timestamp: determine_timestamp(value.received_timestamp),
+            operation_mode: report.operation_mode,
+            location_validation_timestamp: determine_timestamp(
+                report.location_validation_timestamp,
+            ),
+            location_source: report.location_source().as_str_name().to_string(),
         }
     }
 }
