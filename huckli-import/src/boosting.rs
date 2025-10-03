@@ -36,7 +36,7 @@ impl From<BoostedHexUpdateV1> for BoostedHexUpdate {
             start_ts: determine_timestamp(update.start_ts),
             end_ts: determine_timestamp(update.end_ts),
             period_length: update.period_length,
-            multiplier: update.multipliers.get(0).unwrap_or(&0).to_owned(),
+            multiplier: update.multipliers.first().unwrap_or(&0).to_owned(),
             version: update.version,
         }
     }
