@@ -14,7 +14,7 @@ chrono = "0"
 clap = { version = "4", features = ["derive"] }
 duckdb = { version = "1", features = ["bundled", "chrono", "json", "serde_json"] }
 futures = "0"
-helium-proto = { git = "https://github.com/helium/proto", branch = "kurotych/carrier-enablement", features = [
+helium-proto = { git = "https://github.com/helium/proto", branch = "master", features = [
   "services",
 ] }
 prost = "0.14"
