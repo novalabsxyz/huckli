@@ -1,6 +1,7 @@
 pub mod boosting;
 pub mod coverage;
 pub mod data_transfer;
+pub mod enabled_carriers_info;
 pub mod heartbeats;
 pub mod iot_rewards;
 pub mod mobile_rewards;
@@ -80,6 +81,9 @@ pub async fn run(
         SupportedFileTypes::VerifiedUniqueConnections => {
             unique_connections::VerifiedUniqueConnections::get_and_persist(db, s3, time).await?;
         }
+        SupportedFileTypes::EnabledCarriersInfo => {
+            enabled_carriers_info::EnabledCarriersInfo::get_and_persist(db, s3, time).await?;
+        }
     }
     Ok(())
 }
@@ -104,6 +108,7 @@ pub enum SupportedFileTypes {
     VerifiedRadioThreshold,
     VerifiedSpeedtest,
     VerifiedUniqueConnections,
+    EnabledCarriersInfo,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
