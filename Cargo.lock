@@ -1755,13 +1755,13 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 [[package]]
 name = "helium-proto"
 version = "0.1.0"
-source = "git+https://github.com/helium/proto?branch=master#85670a7f583a706c96a4aeb5a74903c40825f8f1"
+source = "git+https://github.com/helium/proto?branch=master#e18be6cc505981679d628cf59b81dec78611d6db"
 dependencies = [
  "bytes",
+ "msg-signature",
  "prost",
  "prost-build",
  "serde",
- "serde_json",
  "strum 0.27.2",
  "strum_macros 0.27.2",
  "tonic",
@@ -2445,6 +2445,23 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "msg-signature"
+version = "0.1.0"
+source = "git+https://github.com/helium/proto?branch=master#e18be6cc505981679d628cf59b81dec78611d6db"
+dependencies = [
+ "msg-signature-macro",
+]
+
+[[package]]
+name = "msg-signature-macro"
+version = "0.1.0"
+source = "git+https://github.com/helium/proto?branch=master#e18be6cc505981679d628cf59b81dec78611d6db"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
