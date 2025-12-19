@@ -10,6 +10,7 @@ pub mod sp_banned_radio;
 pub mod subscribers;
 pub mod unique_connections;
 pub mod usage;
+pub mod usage_v2;
 pub mod verified_speedtest;
 
 use std::str::FromStr;
@@ -49,6 +50,9 @@ pub async fn run(
         }
         SupportedFileTypes::RadioUsageStats => {
             usage::RadioUsageStats::get_and_persist(db, s3, time).await?;
+        }
+        SupportedFileTypes::RadioUsageStatsV2 => {
+            usage_v2::RadioUsageStatsV2::get_and_persist(db, s3, time).await?;
         }
         SupportedFileTypes::SubscriberMappingActivityIngest => {
             subscribers::SubscriberMappingActivityIngest::get_and_persist(db, s3, time).await?;
@@ -98,6 +102,7 @@ pub enum SupportedFileTypes {
     MobileRewards,
     MobileRewardManifest,
     RadioUsageStats,
+    RadioUsageStatsV2,
     SubscriberMappingActivityIngest,
     ValidatedHeartbeat,
     VerifiedCdrVerification,
