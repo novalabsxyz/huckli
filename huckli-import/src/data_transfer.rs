@@ -75,6 +75,7 @@ pub struct VerifiedDataTransferIngestReport {
     #[import(sql = "timestamptz")]
     verified_timestamp: DateTime<Utc>,
     status: String,
+    carrier: String,
 }
 
 impl From<VerifiedDataTransferIngestReportV1> for VerifiedDataTransferIngestReport {
@@ -95,6 +96,7 @@ impl From<VerifiedDataTransferIngestReportV1> for VerifiedDataTransferIngestRepo
             received_timestamp: determine_timestamp(ingest.received_timestamp),
             verified_timestamp: determine_timestamp(value.timestamp),
             status: value.status().as_str_name().to_string(),
+            carrier: req.carrier_id_v2().as_str_name().to_string(),
         }
     }
 }

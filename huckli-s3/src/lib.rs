@@ -89,7 +89,7 @@ impl S3 {
         let prefix = self.prefix.as_deref().unwrap_or(prefix);
         let start_after = after
             .into()
-            .map(|dt| format!("{}.{}.gz", prefix, dt.timestamp_millis()));
+            .map(|dt| format!("{}.{}.gz", prefix.replace(".", ""), dt.timestamp_millis()));
         let before = before.into();
 
         let request = self

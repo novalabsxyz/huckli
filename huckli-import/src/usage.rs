@@ -8,7 +8,7 @@ use crate::{PublicKeyBinary, determine_timestamp};
 #[import(s3decode(
     proto = RadioUsageStatsIngestReportV1,
     bucket = "helium-mainnet-mobile-ingest",
-    prefix = "radio_usage_stats_ingest_report",
+    prefix = "radio_usage_stats_ingest_report.",
 ))]
 pub struct RadioUsageStats {
     hotspot_key: String,
