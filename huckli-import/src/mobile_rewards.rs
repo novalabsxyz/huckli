@@ -185,6 +185,7 @@ pub struct ServiceProviderReward {
     service_provider: String,
     #[import(sql = "uint64")]
     amount: u64,
+    rewardable_entity_key: String,
 }
 
 impl ToMobileReward for poc_mobile::ServiceProviderReward {
@@ -194,6 +195,7 @@ impl ToMobileReward for poc_mobile::ServiceProviderReward {
             end_period: end,
             service_provider: self.service_provider_id().as_str_name().to_string(),
             amount: self.amount,
+            rewardable_entity_key: self.rewardable_entity_key,
         })
     }
 }
