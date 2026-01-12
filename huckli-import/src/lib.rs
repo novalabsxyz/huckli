@@ -13,12 +13,28 @@ pub mod usage;
 pub mod usage_v2;
 pub mod verified_speedtest;
 
-use std::str::FromStr;
+use std::{cell::RefCell, str::FromStr};
 
 use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
+
+thread_local! {
+    static FILE_SOURCE: RefCell<Option<String>> = RefCell::new(None);
+}
+
+pub fn set_file_source(key: &str) {
+    FILE_SOURCE.with(|fs| *fs.borrow_mut() = Some(key.to_string()));
+}
+
+pub fn get_file_source() -> Option<String> {
+    FILE_SOURCE.with(|fs| fs.borrow().clone())
+}
+
+pub fn clear_file_source() {
+    FILE_SOURCE.with(|fs| *fs.borrow_mut() = None);
+}
 
 pub async fn run(
     file_type: SupportedFileTypes,
@@ -185,7 +201,11 @@ where
 
     while let Some((file, data)) = stream.next().await {
         tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
+
+        set_file_source(&file.key);
         T::save(db, data)?;
+        clear_file_source();
+
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
 

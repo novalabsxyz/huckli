@@ -78,7 +78,13 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let persist = quote! {
         impl crate::DbTable for #name {
             fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
-                db.create_table(#table_name, vec![#(#fields),*])
+                let mut fields = vec![#(#fields),*];
+                fields.push(huckli_db::TableField::new(
+                    "file_source".to_string(),
+                    Some("TEXT".to_string()),
+                    Some(false)
+                ));
+                db.create_table(#table_name, fields)
             }
 
             fn save(db: &huckli_db::Db, data: Vec<Self>) -> anyhow::Result<()> {
@@ -88,7 +94,9 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
 
         impl huckli_db::Appendable for #name {
             fn append(&self, appender: &mut duckdb::Appender) -> anyhow::Result<()> {
-                appender.append_row(duckdb::params![#(self.#field_names),*])
+                let file_source = crate::get_file_source()
+                    .unwrap_or_else(|| "unknown".to_string());
+                appender.append_row(duckdb::params![#(self.#field_names),*, file_source])
                     .map_err(anyhow::Error::from)
             }
         }
