@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use helium_proto::services::poc_mobile::RadioUsageStatsIngestReportV2;
 use huckli_import_derive::Import;
 
-use crate::{determine_timestamp, PublicKeyBinary};
+use crate::{PublicKeyBinary, determine_timestamp};
 
 #[derive(Debug, Import)]
 #[import(s3decode(

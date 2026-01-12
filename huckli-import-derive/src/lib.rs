@@ -104,14 +104,14 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
                 pub async fn get_and_persist(
                     db: &huckli_db::Db,
                     s3: &huckli_s3::S3,
-                    time: &crate::TimeArgs,
+                    selection: &crate::FileSelectionArgs,
                 ) -> anyhow::Result<()> {
                     crate::get_and_persist::<#proto, #name>(
                         db,
                         s3,
                         #bucket,
                         #prefix,
-                        time,
+                        selection,
                     ).await
                 }
             }
