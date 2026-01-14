@@ -78,12 +78,14 @@ pub fn persist_derive(input: TokenStream) -> TokenStream {
     let persist = quote! {
         impl crate::DbTable for #name {
             fn create_table(db: &huckli_db::Db) -> anyhow::Result<()> {
-                let mut fields = vec![#(#fields),*];
-                fields.push(huckli_db::TableField::new(
-                    "file_source".to_string(),
-                    Some("TEXT".to_string()),
-                    Some(false)
-                ));
+                let fields = vec![
+                    #(#fields),*,
+                    huckli_db::TableField::new(
+                        "file_source".to_string(),
+                        Some("TEXT".to_string()),
+                        Some(false)
+                    )
+                ];
                 db.create_table(#table_name, fields)
             }
 
