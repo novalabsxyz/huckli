@@ -238,15 +238,14 @@ where
 }
 
 #[derive(Debug, clap::Args)]
-#[group(id = "file_selection", multiple = false)]
 pub struct FileSelectionArgs {
-    #[arg(long, group = "file_selection")]
+    #[arg(long)]
     after: Option<NaiveDateTime>,
     #[arg(long)]
     before: Option<NaiveDateTime>,
-    #[arg(long, default_value_t = false, group = "file_selection")]
+    #[arg(long, default_value_t = false)]
     r#continue: bool,
-    #[arg(long, group = "file_selection")]
+    #[arg(long)]
     file: Option<String>,
 }
 
