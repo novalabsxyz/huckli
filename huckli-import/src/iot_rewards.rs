@@ -72,14 +72,14 @@ impl IotReward {
     pub async fn get_and_persist(
         db: &huckli_db::Db,
         s3: &huckli_s3::S3,
-        time: &crate::TimeArgs,
+        selection: &crate::FileSelectionArgs,
     ) -> anyhow::Result<()> {
         crate::get_and_persist::<poc_lora::IotRewardShare, IotReward>(
             db,
             s3,
             "helium-mainnet-iot-verified-rewards",
             "iot_network_reward_shares_v1",
-            time,
+            selection,
         )
         .await
     }

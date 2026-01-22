@@ -13,80 +13,100 @@ pub mod usage;
 pub mod usage_v2;
 pub mod verified_speedtest;
 
-use std::str::FromStr;
+use std::{cell::RefCell, str::FromStr};
 
 use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use futures::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
 
+thread_local! {
+    static FILE_SOURCE: RefCell<Option<String>> = RefCell::new(None);
+}
+
+pub fn set_file_source(key: &str) {
+    FILE_SOURCE.with(|fs| *fs.borrow_mut() = Some(key.to_string()));
+}
+
+pub fn get_file_source() -> Option<String> {
+    FILE_SOURCE.with(|fs| fs.borrow().clone())
+}
+
+pub fn clear_file_source() {
+    FILE_SOURCE.with(|fs| *fs.borrow_mut() = None);
+}
+
 pub async fn run(
     file_type: SupportedFileTypes,
     db: &huckli_db::Db,
     s3: &huckli_s3::S3,
-    time: &crate::TimeArgs,
+    selection: &FileSelectionArgs,
 ) -> anyhow::Result<()> {
     match file_type {
         SupportedFileTypes::BoostedHexUpdate => {
-            boosting::BoostedHexUpdate::get_and_persist(db, s3, time).await?;
+            boosting::BoostedHexUpdate::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::CoverageObject => {
-            coverage::CoverageObjectProto::get_and_persist(db, s3, time).await?;
+            coverage::CoverageObjectProto::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::DataTransferBurn => {
-            data_transfer::DataTransferBurn::get_and_persist(db, s3, time).await?;
+            data_transfer::DataTransferBurn::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::DataTransferIngest => {
-            data_transfer::DataTransferIngestReport::get_and_persist(db, s3, time).await?;
+            data_transfer::DataTransferIngestReport::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::IotRewards => {
-            iot_rewards::IotReward::get_and_persist(db, s3, time).await?;
+            iot_rewards::IotReward::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::MobileRewards => {
-            mobile_rewards::MobileReward::get_and_persist(db, s3, time).await?;
+            mobile_rewards::MobileReward::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::MobileRewardManifest => {
-            mobile_rewards::MobileRewardManifest::get_and_persist(db, s3, time).await?;
+            mobile_rewards::MobileRewardManifest::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::RadioUsageStats => {
-            usage::RadioUsageStats::get_and_persist(db, s3, time).await?;
+            usage::RadioUsageStats::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::RadioUsageStatsV2 => {
-            usage_v2::RadioUsageStatsV2::get_and_persist(db, s3, time).await?;
+            usage_v2::RadioUsageStatsV2::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::SubscriberMappingActivityIngest => {
-            subscribers::SubscriberMappingActivityIngest::get_and_persist(db, s3, time).await?;
+            subscribers::SubscriberMappingActivityIngest::get_and_persist(db, s3, selection)
+                .await?;
         }
         SupportedFileTypes::ValidatedHeartbeat => {
-            heartbeats::VerifiedWifiHeartbeat::get_and_persist(db, s3, time).await?;
+            heartbeats::VerifiedWifiHeartbeat::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::WifiHeartbeatIngest => {
-            heartbeats::WifiHeartbeatIngestReport::get_and_persist(db, s3, time).await?;
+            heartbeats::WifiHeartbeatIngestReport::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::VerifiedCdrVerification => {
-            sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, time).await?;
+            sp_banned_radio::VerifiedCdrVerification::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::VerifiedDataTransfer => {
-            data_transfer::VerifiedDataTransferIngestReport::get_and_persist(db, s3, time).await?;
+            data_transfer::VerifiedDataTransferIngestReport::get_and_persist(db, s3, selection)
+                .await?;
         }
         SupportedFileTypes::VerifiedInvalidatedRadioThreshold => {
-            radio_thresholds::VerifiedInvalidatedRadioThreshold::get_and_persist(db, s3, time)
+            radio_thresholds::VerifiedInvalidatedRadioThreshold::get_and_persist(db, s3, selection)
                 .await?;
         }
         SupportedFileTypes::VerifiedRadioThreshold => {
-            radio_thresholds::VerifiedRadioThreshold::get_and_persist(db, s3, time).await?;
+            radio_thresholds::VerifiedRadioThreshold::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::VerifiedSubscriberMappingActivity => {
-            subscribers::VerifiedSubscriberMappingActivity::get_and_persist(db, s3, time).await?;
+            subscribers::VerifiedSubscriberMappingActivity::get_and_persist(db, s3, selection)
+                .await?;
         }
         SupportedFileTypes::VerifiedSpeedtest => {
-            verified_speedtest::VerifiedSpeedtestReport::get_and_persist(db, s3, time).await?;
+            verified_speedtest::VerifiedSpeedtestReport::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::VerifiedUniqueConnections => {
-            unique_connections::VerifiedUniqueConnections::get_and_persist(db, s3, time).await?;
+            unique_connections::VerifiedUniqueConnections::get_and_persist(db, s3, selection)
+                .await?;
         }
         SupportedFileTypes::EnabledCarriersInfo => {
-            enabled_carriers_info::EnabledCarriersInfo::get_and_persist(db, s3, time).await?;
+            enabled_carriers_info::EnabledCarriersInfo::get_and_persist(db, s3, selection).await?;
         }
     }
     Ok(())
@@ -165,7 +185,7 @@ pub async fn get_and_persist<F, T>(
     s3: &huckli_s3::S3,
     bucket: &str,
     prefix: &str,
-    time: &TimeArgs,
+    selection: &FileSelectionArgs,
 ) -> anyhow::Result<()>
 where
     F: prost::Message + Default,
@@ -173,14 +193,7 @@ where
 {
     T::create_table(db)?;
 
-    let files = s3
-        .list_all(
-            bucket,
-            prefix,
-            time.after_utc(db, prefix)?,
-            time.before_utc(),
-        )
-        .await?;
+    let files = selection.get_files(s3, db, bucket, prefix).await?;
 
     let mut stream = futures::stream::iter(files)
         .map(|file| async { (file.clone(), get_and_decode::<F, T>(s3, bucket, file).await) })
@@ -188,7 +201,11 @@ where
 
     while let Some((file, data)) = stream.next().await {
         tracing::info!(file = %file.key, timestamp = %file.timestamp, "processing");
+
+        set_file_source(&file.key);
         T::save(db, data)?;
+        clear_file_source();
+
         db.save_file_processed(&file.key, &file.prefix, file.timestamp)?;
     }
 
@@ -221,22 +238,49 @@ where
 }
 
 #[derive(Debug, clap::Args)]
-pub struct TimeArgs {
+pub struct FileSelectionArgs {
     #[arg(long)]
     after: Option<NaiveDateTime>,
     #[arg(long)]
     before: Option<NaiveDateTime>,
     #[arg(long, default_value_t = false)]
     r#continue: bool,
+    #[arg(long)]
+    file: Option<String>,
 }
 
-impl TimeArgs {
+impl FileSelectionArgs {
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.r#continue && self.after.is_some() {
             anyhow::bail!("Invalid options, cannot specify both 'continue' and 'after'");
         }
 
+        if self.file.is_some() && self.before.is_some() {
+            anyhow::bail!("Invalid options, cannot specify 'before' with 'file'");
+        }
+
         Ok(())
+    }
+
+    pub async fn get_files(
+        &self,
+        s3: &huckli_s3::S3,
+        db: &huckli_db::Db,
+        bucket: &str,
+        prefix: &str,
+    ) -> anyhow::Result<Vec<huckli_s3::FileInfo>> {
+        if let Some(file_str) = &self.file {
+            let file_info = huckli_s3::FileInfo::from_str(file_str)?;
+            Ok(vec![file_info])
+        } else {
+            s3.list_all(
+                bucket,
+                prefix,
+                self.after_utc(db, prefix)?,
+                self.before_utc(),
+            )
+            .await
+        }
     }
 
     pub fn after_utc(

@@ -1,5 +1,5 @@
 use clap::Parser;
-use huckli_import::{SupportedFileTypes, TimeArgs};
+use huckli_import::{FileSelectionArgs, SupportedFileTypes};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, clap::Parser)]
@@ -11,13 +11,13 @@ struct Args {
     #[command(flatten)]
     s3: huckli_s3::S3Args,
     #[command(flatten)]
-    time: TimeArgs,
+    selection: FileSelectionArgs,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    args.time.validate()?;
+    args.selection.validate()?;
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new("info"))
@@ -27,5 +27,5 @@ async fn main() -> anyhow::Result<()> {
     let db = huckli_db::Db::connect(&args.db)?;
     let s3 = args.s3.connect().await;
 
-    huckli_import::run(args.file_type, &db, &s3, &args.time).await
+    huckli_import::run(args.file_type, &db, &s3, &args.selection).await
 }
