@@ -12,6 +12,7 @@ huckli-db = { path = "../huckli-db" }
 duckdb.workspace = true
 futures.workspace = true
 helium-proto.workspace = true
+hex.workspace = true
 huckli-import-derive = { path = "../huckli-import-derive" }
 prost.workspace = true
 rust_decimal.workspace = true

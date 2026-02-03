@@ -3,6 +3,10 @@ pub mod coverage;
 pub mod data_transfer;
 pub mod enabled_carriers_info;
 pub mod heartbeats;
+pub mod iot_beacon_ingest;
+pub mod iot_invalid_beacon;
+pub mod iot_invalid_witness;
+pub mod iot_poc;
 pub mod iot_rewards;
 pub mod mobile_rewards;
 pub mod radio_thresholds;
@@ -54,6 +58,18 @@ pub async fn run(
         }
         SupportedFileTypes::DataTransferIngest => {
             data_transfer::DataTransferIngestReport::get_and_persist(db, s3, selection).await?;
+        }
+        SupportedFileTypes::IotBeaconIngest => {
+            iot_beacon_ingest::IotBeaconIngest::get_and_persist(db, s3, selection).await?;
+        }
+        SupportedFileTypes::IotInvalidBeacon => {
+            iot_invalid_beacon::IotInvalidBeacon::get_and_persist(db, s3, selection).await?;
+        }
+        SupportedFileTypes::IotInvalidWitness => {
+            iot_invalid_witness::IotInvalidWitness::get_and_persist(db, s3, selection).await?;
+        }
+        SupportedFileTypes::IotPoc => {
+            iot_poc::IotPocProto::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::IotRewards => {
             iot_rewards::IotReward::get_and_persist(db, s3, selection).await?;
@@ -118,6 +134,10 @@ pub enum SupportedFileTypes {
     CoverageObject,
     DataTransferBurn,
     DataTransferIngest,
+    IotBeaconIngest,
+    IotInvalidBeacon,
+    IotInvalidWitness,
+    IotPoc,
     IotRewards,
     MobileRewards,
     MobileRewardManifest,
