@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use helium_proto::{RewardManifest, services::poc_mobile};
+use helium_proto::{MobileRewardToken, RewardManifest, reward_manifest, services::poc_mobile};
 use huckli_import_derive::Import;
 use uuid::Uuid;
 
@@ -261,7 +261,8 @@ impl ToMobileReward for poc_mobile::GatewayReward {
 #[import(s3decode(
     proto = RewardManifest,
     bucket = "helium-mainnet-mobile-verified",
-    prefix = "network_reward_manifest_v1",
+    // prefix = "network_reward_manifest_v1",
+    prefix = "reward_manifest",
 ))]
 pub struct MobileRewardManifest {
     #[import(sql = "timestamptz")]
@@ -272,6 +273,7 @@ pub struct MobileRewardManifest {
     epoch: u64,
     #[import(sql = "uint64")]
     price: u64,
+    token: String,
     #[import(sql = "json")]
     written_files: serde_json::Value,
 }
@@ -284,11 +286,21 @@ impl From<RewardManifest> for MobileRewardManifest {
             .map(serde_json::Value::String)
             .collect();
 
+        let token = match value.reward_data {
+            Some(reward_manifest::RewardData::MobileRewardData(data)) => {
+                MobileRewardToken::try_from(data.token)
+                    .map(|t| t.as_str_name().to_string())
+                    .unwrap_or_default()
+            }
+            _ => String::new(),
+        };
+
         Self {
             start_period: determine_timestamp(value.start_timestamp),
             end_period: determine_timestamp(value.end_timestamp),
             epoch: value.epoch,
             price: value.price,
+            token,
             written_files: serde_json::Value::Array(written_files),
         }
     }

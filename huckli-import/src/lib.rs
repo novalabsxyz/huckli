@@ -2,6 +2,7 @@ pub mod boosting;
 pub mod coverage;
 pub mod data_transfer;
 pub mod enabled_carriers_info;
+pub mod entity_ownership_change;
 pub mod heartbeats;
 pub mod iot_beacon_ingest;
 pub mod iot_invalid_beacon;
@@ -9,6 +10,7 @@ pub mod iot_invalid_witness;
 pub mod iot_poc;
 pub mod iot_rewards;
 pub mod mobile_rewards;
+pub mod price_report;
 pub mod radio_thresholds;
 pub mod sp_banned_radio;
 pub mod subscribers;
@@ -59,6 +61,10 @@ pub async fn run(
         SupportedFileTypes::DataTransferIngest => {
             data_transfer::DataTransferIngestReport::get_and_persist(db, s3, selection).await?;
         }
+        SupportedFileTypes::EntityOwnershipChange => {
+            entity_ownership_change::EntityOwnershipChange::get_and_persist(db, s3, selection)
+                .await?;
+        }
         SupportedFileTypes::IotBeaconIngest => {
             iot_beacon_ingest::IotBeaconIngest::get_and_persist(db, s3, selection).await?;
         }
@@ -79,6 +85,9 @@ pub async fn run(
         }
         SupportedFileTypes::MobileRewardManifest => {
             mobile_rewards::MobileRewardManifest::get_and_persist(db, s3, selection).await?;
+        }
+        SupportedFileTypes::PriceReportV1 => {
+            price_report::PriceReport::get_and_persist(db, s3, selection).await?;
         }
         SupportedFileTypes::RadioUsageStats => {
             usage::RadioUsageStats::get_and_persist(db, s3, selection).await?;
@@ -134,6 +143,7 @@ pub enum SupportedFileTypes {
     CoverageObject,
     DataTransferBurn,
     DataTransferIngest,
+    EntityOwnershipChange,
     IotBeaconIngest,
     IotInvalidBeacon,
     IotInvalidWitness,
@@ -141,6 +151,7 @@ pub enum SupportedFileTypes {
     IotRewards,
     MobileRewards,
     MobileRewardManifest,
+    PriceReportV1,
     RadioUsageStats,
     RadioUsageStatsV2,
     SubscriberMappingActivityIngest,
